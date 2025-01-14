@@ -7,6 +7,10 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from app.util import is_today_fifth_business_day
 import os
+import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 scheduler = AsyncIOScheduler()
@@ -35,9 +39,14 @@ month = current_date.strftime(
     "%m"
 )  # Format as two-digit month (e.g., "01" for January)
 year = current_date.strftime("%y")  # Format as two-digit year (e.g., "25" for 2025)
-print(month, year)
+
+
+def get_sheet(month, year):
+    return client.open(f"Expenses {month}/{year}").sheet1
+
+
 # Dynamically generate the sheet name
-sheet = client.open(f"Expenses {month}/{year}").sheet1
+sheet = get_sheet(month=month, year=year)
 
 
 def get_house_finance_data(sheet) -> str:
@@ -99,7 +108,7 @@ async def send_month_finance_data():
     current_date = datetime.now()
     month = current_date.strftime("%m")
     year = current_date.strftime("%y")
-    sheet = client.open(f"Expenses {month}/{year}").sheet1
+    sheet = await asyncio.to_thread(get_sheet(month=month, year=year))
     # Check if today is the 5th business day
     if is_today_fifth_business_day():
         await send_message(sheet=sheet, channel_id=1328396082375295078)

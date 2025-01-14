@@ -9,6 +9,8 @@ gspread = "*"
 oauth2client = "*"
 datetime = "*"
 apscheduler = "*"
+asyncio = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
