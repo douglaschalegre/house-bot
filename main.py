@@ -45,6 +45,11 @@ def get_sheet(month, year):
     return client.open(f"Expenses {month}/{year}").sheet1
 
 
+# Define an async function to get the sheet using asyncio.to_thread
+async def fetch_sheet(month, year):
+    return await asyncio.to_thread(get_sheet, month, year)
+
+
 # Dynamically generate the sheet name
 sheet = get_sheet(month=month, year=year)
 
@@ -108,7 +113,7 @@ async def send_month_finance_data():
     current_date = datetime.now()
     month = current_date.strftime("%m")
     year = current_date.strftime("%y")
-    sheet = await asyncio.to_thread(get_sheet(month=month, year=year))
+    sheet = await fetch_sheet(month=month, year=year)
     # Check if today is the 5th business day
     if is_today_fifth_business_day():
         await send_message(sheet=sheet, channel_id=1328396082375295078)
