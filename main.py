@@ -103,7 +103,7 @@ async def send_message(channel_id: int, sheet):
     await channel.send(f"```\n{table}\n```")
 
 
-@scheduler.scheduled_job(CronTrigger(minute="55"))  # Check every day at 0:00 AM
+@scheduler.scheduled_job(CronTrigger(minute="*"))  # Check every day at 0:00 AM
 async def send_month_finance_data():
     current_date = datetime.now()
     month = current_date.strftime("%m")
