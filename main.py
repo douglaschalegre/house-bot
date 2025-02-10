@@ -42,7 +42,9 @@ year = current_date.strftime("%y")  # Format as two-digit year (e.g., "25" for 2
 
 
 def get_sheet(month, year):
-    return client.open(f"Expenses {month}/{year}").sheet1
+    sheet = f"Expenses {month}/{year}"
+    print(sheet)
+    return client.open(sheet).sheet1
 
 
 # Define an async function to get the sheet using asyncio.to_thread
@@ -85,6 +87,11 @@ def get_house_finance_data(sheet) -> str:
         table += f"{row[0]:<10} {row[1]:<15} {row[2]:<10} {row[3]:<15}\n"
 
     return table
+
+
+def get_detailed_expenses(sheet) -> str:
+    # TODO: Implement feature
+    return ""
 
 
 @bot.event
