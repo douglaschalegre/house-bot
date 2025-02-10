@@ -106,8 +106,10 @@ async def on_message(message):
     if message.channel.id == 1328396042689052682 and (
         not message.content.startswith("!") or not message.content.startswith("[!]")
     ):  # Replace with your specific channel ID
-        shopping_list.append(message.content)
-        print(f"{message.content} added to shopping list")
+        items = message.content.split("\n")
+        for item in items:
+            shopping_list.append(item)
+            print(f"{item} added to shopping list")
     await bot.process_commands(message)
 
 
