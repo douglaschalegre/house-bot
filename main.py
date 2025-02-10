@@ -7,7 +7,6 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from app.util import is_today_fifth_business_day
 import os
-import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -40,16 +39,24 @@ month = current_date.strftime(
 )  # Format as two-digit month (e.g., "01" for January)
 year = current_date.strftime("%y")  # Format as two-digit year (e.g., "25" for 2025)
 
+shopping_list = []
+
 
 def get_sheet(month, year):
     sheet = f"Expenses {month}/{year}"
     print(sheet)
-    return client.open(sheet).sheet1
+    try:
+        return client.open(sheet).sheet1
+    except gspread.exceptions.SpreadsheetNotFound:
+        print(f"Spreadsheet '{sheet}' not found.")
+        return None
 
 
 # Define an async function to get the sheet using asyncio.to_thread
 async def fetch_sheet(month, year):
-    return await asyncio.to_thread(get_sheet, month, year)
+    sheet = get_sheet(month=month, year=year)
+    if sheet is None:
+        raise Exception(f"Spreadsheet 'Expenses {month}/{year}' not found.")
 
 
 # Dynamically generate the sheet name
@@ -92,6 +99,32 @@ def get_house_finance_data(sheet) -> str:
 def get_detailed_expenses(sheet) -> str:
     # TODO: Implement feature
     return ""
+
+
+@bot.event
+async def on_message(message):
+    if (
+        message.channel.id == 1328396042689052682
+    ):  # Replace with your specific channel ID
+        shopping_list.append(message.content)
+    await bot.process_commands(message)
+    print(f"{message} added to shopping list")
+    return None
+
+
+@bot.command()
+async def lista(ctx):
+    if shopping_list:
+        formatted_list = "\n".join(f"- {item}" for item in shopping_list)
+        await ctx.send(f"Shopping List:\n```\n{formatted_list}\n```")
+    else:
+        await ctx.send("The shopping list is currently empty.")
+
+
+@bot.command()
+async def zerar(ctx):
+    shopping_list.clear()
+    await ctx.send("The shopping list has been cleared.")
 
 
 @bot.event
