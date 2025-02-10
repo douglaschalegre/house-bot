@@ -103,13 +103,12 @@ def get_detailed_expenses(sheet) -> str:
 
 @bot.event
 async def on_message(message):
-    if (
-        message.channel.id == 1328396042689052682
+    if message.channel.id == 1328396042689052682 and not message.content.startswith(
+        "!"
     ):  # Replace with your specific channel ID
         shopping_list.append(message.content)
+        print(f"{message.content} added to shopping list")
     await bot.process_commands(message)
-    print(f"{message} added to shopping list")
-    return None
 
 
 @bot.command()
