@@ -103,8 +103,8 @@ def get_detailed_expenses(sheet) -> str:
 
 @bot.event
 async def on_message(message):
-    if message.channel.id == 1328396042689052682 and (
-        not message.content.startswith("!") or not message.content.startswith("[!]")
+    if message.channel.id == 1328396042689052682 and not (
+        message.content.startswith("!") or message.content.startswith("[ ! ]")
     ):  # Replace with your specific channel ID
         items = message.content.split("\n")
         for item in items:
@@ -117,15 +117,15 @@ async def on_message(message):
 async def lista(ctx):
     if shopping_list:
         formatted_list = "\n".join(f"- {item}" for item in shopping_list)
-        await ctx.send(f"[!] Shopping List:\n```\n{formatted_list}\n```")
+        await ctx.send(f"[ ! ] Shopping List:\n```\n{formatted_list}\n```")
     else:
-        await ctx.send("[!] The shopping list is currently empty.")
+        await ctx.send("[ ! ] The shopping list is currently empty.")
 
 
 @bot.command()
 async def zerar(ctx):
     shopping_list.clear()
-    await ctx.send("[!] The shopping list has been cleared.")
+    await ctx.send("[ ! ] The shopping list has been cleared.")
 
 
 @bot.event
