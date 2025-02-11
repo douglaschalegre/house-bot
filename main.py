@@ -146,7 +146,7 @@ def get_detailed_expenses(sheet) -> str:
         value_type = row.get("type")
         contributions += f"{name:<10} {value:<10} {value_type:<10}\n"
 
-    return contributions
+    return data
 
 
 @bot.event
