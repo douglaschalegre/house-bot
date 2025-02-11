@@ -65,22 +65,14 @@ sheet = get_sheet(month=month, year=year)
 
 def get_house_finance_data(sheet) -> str:
     # Get data from the Google Sheet
-    salario_douglas, salario_luana, salario_total = (
-        sheet.cell(6, 13).value,
-        sheet.cell(7, 13).value,
-        sheet.cell(8, 13).value,
-    )
-    percent_douglas, percent_luana, percent_total = (
-        sheet.cell(6, 14).value,
-        sheet.cell(7, 14).value,
-        sheet.cell(8, 14).value,
-    )
-    contri_douglas, contri_luana, contri_total = (
-        sheet.cell(6, 15).value,
-        sheet.cell(7, 15).value,
-        sheet.cell(8, 15).value,
-    )
-    # Convert all values to strings for display
+    values = sheet.get("M6:O8")  # This fetches all necessary values in one go
+
+    # Unpack the values from the fetched data
+    (salario_douglas, percent_douglas, contri_douglas) = values[0]
+    (salario_luana, percent_luana, contri_luana) = values[1]
+    (salario_total, percent_total, contri_total) = values[2]
+
+    # Organize the data
     data = [
         ("Douglas", salario_douglas, percent_douglas, contri_douglas),
         ("Luana", salario_luana, percent_luana, contri_luana),
@@ -98,55 +90,15 @@ def get_house_finance_data(sheet) -> str:
 
 def get_detailed_expenses(sheet) -> str:
     contributions = get_house_finance_data(sheet=sheet)
-    data = [
-        {
-            "name": sheet.cell(10, 13).value,
-            "value": sheet.cell(10, 14).value,
-            "type": sheet.cell(10, 15).value,
-        },
-        {
-            "name": sheet.cell(11, 13).value,
-            "value": sheet.cell(11, 14).value,
-            "type": sheet.cell(11, 15).value,
-        },
-        {
-            "name": sheet.cell(12, 13).value,
-            "value": sheet.cell(12, 14).value,
-            "type": sheet.cell(12, 15).value,
-        },
-        {
-            "name": sheet.cell(13, 13).value,
-            "value": sheet.cell(13, 14).value,
-            "type": sheet.cell(13, 15).value,
-        },
-        {
-            "name": sheet.cell(14, 13).value,
-            "value": sheet.cell(14, 14).value,
-            "type": sheet.cell(14, 15).value,
-        },
-        {
-            "name": sheet.cell(15, 13).value,
-            "value": sheet.cell(15, 14).value,
-            "type": sheet.cell(15, 15).value,
-        },
-        {
-            "name": sheet.cell(16, 13).value,
-            "value": sheet.cell(16, 14).value,
-            "type": sheet.cell(16, 15).value,
-        },
-        {
-            "name": sheet.cell(17, 13).value,
-            "value": sheet.cell(17, 14).value,
-            "type": sheet.cell(17, 15).value,
-        },
-    ]
+    contributions += "-" * 45 + "\n"
+    data_range = sheet.get("M10:O17")  # Fetches all required cells in one API call
+    data = [{"name": row[0], "value": row[1], "type": row[2]} for row in data_range]
     for row in data:
         name = row.get("name")
         value = row.get("value")
         value_type = row.get("type")
-        contributions += f"{name:<10} {value:<10} {value_type:<10}\n"
-
-    return data
+        contributions += f"{name:<20} {value:<10} {value_type:<15}\n"
+    return contributions
 
 
 @bot.event
@@ -206,7 +158,7 @@ async def send_message(channel_id: int, sheet):
     await channel.send(f"```\n{table}\n```")
 
 
-@scheduler.scheduled_job(CronTrigger(minute="*"))  # Check every day at 0:00 AM
+@scheduler.scheduled_job(CronTrigger(day="*"))  # Check every day at 0:00 AM
 async def send_month_finance_data():
     current_date = datetime.now()
     month = current_date.strftime("%m")
