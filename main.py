@@ -141,7 +141,10 @@ def get_detailed_expenses(sheet) -> str:
         },
     ]
     for row in data:
-        contributions += f"{row.name:<10} {row.value:<10} {row.type:<10}\n"
+        name = row.get("name")
+        value = row.get("value")
+        value_type = row.get("type")
+        contributions += f"{name:<10} {value:<10} {value_type:<10}\n"
 
     return contributions
 
