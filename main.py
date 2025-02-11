@@ -88,17 +88,62 @@ def get_house_finance_data(sheet) -> str:
     ]
 
     # Format as a table
-    table = f"{'Name':<10} {'Salary':<15} {'Percent':<10} {'Contribution':<15}\n"
-    table += "-" * 50 + "\n"
+    table = f"{'Name':<10} {'Salary':<10} {'Percent':<10} {'Contribution':<15}\n"
+    table += "-" * 45 + "\n"
     for row in data:
-        table += f"{row[0]:<10} {row[1]:<15} {row[2]:<10} {row[3]:<15}\n"
+        table += f"{row[0]:<10} {row[1]:<10} {row[2]:<10} {row[3]:<15}\n"
 
     return table
 
 
 def get_detailed_expenses(sheet) -> str:
-    # TODO: Implement feature
-    return ""
+    contributions = get_house_finance_data(sheet=sheet)
+    data = [
+        {
+            "name": sheet.cell(10, 13).value,
+            "value": sheet.cell(10, 14).value,
+            "type": sheet.cell(10, 15).value,
+        },
+        {
+            "name": sheet.cell(11, 13).value,
+            "value": sheet.cell(11, 14).value,
+            "type": sheet.cell(11, 15).value,
+        },
+        {
+            "name": sheet.cell(12, 13).value,
+            "value": sheet.cell(12, 14).value,
+            "type": sheet.cell(12, 15).value,
+        },
+        {
+            "name": sheet.cell(13, 13).value,
+            "value": sheet.cell(13, 14).value,
+            "type": sheet.cell(13, 15).value,
+        },
+        {
+            "name": sheet.cell(14, 13).value,
+            "value": sheet.cell(14, 14).value,
+            "type": sheet.cell(14, 15).value,
+        },
+        {
+            "name": sheet.cell(15, 13).value,
+            "value": sheet.cell(15, 14).value,
+            "type": sheet.cell(15, 15).value,
+        },
+        {
+            "name": sheet.cell(16, 13).value,
+            "value": sheet.cell(16, 14).value,
+            "type": sheet.cell(16, 15).value,
+        },
+        {
+            "name": sheet.cell(17, 13).value,
+            "value": sheet.cell(17, 14).value,
+            "type": sheet.cell(17, 15).value,
+        },
+    ]
+    for row in data:
+        contributions += f"{row.name:<10} {row.value:<10} {row.type:<10}\n"
+
+    return contributions
 
 
 @bot.event
@@ -138,6 +183,15 @@ async def on_ready():
 async def dindin(ctx):
     try:
         table = get_house_finance_data(sheet=sheet)
+        await ctx.send(f"```\n{table}\n```")
+    except Exception as e:
+        await ctx.send(f"An error occurred: {e}")
+
+
+@bot.command()
+async def detalhado(ctx):
+    try:
+        table = get_detailed_expenses(sheet=sheet)
         await ctx.send(f"```\n{table}\n```")
     except Exception as e:
         await ctx.send(f"An error occurred: {e}")
