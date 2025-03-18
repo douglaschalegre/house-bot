@@ -32,13 +32,6 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
 )
 client = gspread.authorize(credentials)
 
-# Get the current month and year
-current_date = datetime.now()
-month = current_date.strftime(
-    "%m"
-)  # Format as two-digit month (e.g., "01" for January)
-year = current_date.strftime("%y")  # Format as two-digit year (e.g., "25" for 2025)
-
 shopping_list = []
 
 
@@ -57,10 +50,6 @@ async def fetch_sheet(month, year):
     sheet = get_sheet(month=month, year=year)
     if sheet is None:
         raise Exception(f"Spreadsheet 'Expenses {month}/{year}' not found.")
-
-
-# Dynamically generate the sheet name
-sheet = get_sheet(month=month, year=year)
 
 
 def get_house_finance_data(sheet) -> str:
@@ -136,8 +125,11 @@ async def on_ready():
 
 @bot.command()
 async def dindin(ctx):
+    current_date = datetime.now()
+    month = current_date.strftime("%m")
+    year = current_date.strftime("%y")
     try:
-        table = get_house_finance_data(sheet=sheet)
+        table = get_house_finance_data(sheet=get_sheet(month=month, year=year))
         await ctx.send(f"```\n{table}\n```")
     except Exception as e:
         await ctx.send(f"An error occurred: {e}")
@@ -145,8 +137,11 @@ async def dindin(ctx):
 
 @bot.command()
 async def detalhado(ctx):
+    current_date = datetime.now()
+    month = current_date.strftime("%m")
+    year = current_date.strftime("%y")
     try:
-        table = get_detailed_expenses(sheet=sheet)
+        table = get_detailed_expenses(sheet=get_sheet(month=month, year=year))
         await ctx.send(f"```\n{table}\n```")
     except Exception as e:
         await ctx.send(f"An error occurred: {e}")
