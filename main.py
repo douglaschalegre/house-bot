@@ -8,10 +8,15 @@ from oauth2client.service_account import ServiceAccountCredentials
 from app.util import is_today_fifth_business_day
 import os
 from dotenv import load_dotenv
+import openai
+import asyncio
 
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai.api_key = OPENAI_API_KEY
+
 scheduler = AsyncIOScheduler()
 
 # Define intents
@@ -114,6 +119,46 @@ async def lista(ctx):
 
 
 @bot.command()
+async def ordenar(ctx):
+    """
+    Ordena a lista de compras usando o GPT-4
+    """
+    if not shopping_list:
+        await ctx.send("[ ! ] The shopping list is currently empty.")
+        return
+
+    try:
+        # Create the prompt for GPT-4
+        items = "\n".join(shopping_list)
+        prompt = f"""Por favor, organize esta lista de compras de forma lógica, agrupando itens similares.
+        Considere categorias como hortifruti, laticínios, carnes, produtos de despensa, etc.
+        Para cada item, adicione um marcador (-) e mantenha os nomes originais dos itens.
+        Aqui está a lista:
+        {items}"""
+
+        # Make the API request using the new OpenAI client syntax
+        response = await asyncio.to_thread(
+            openai.chat.completions.create,  # Updated API endpoint
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant that organizes shopping lists into logical categories.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+        )
+
+        # Extract the sorted list from the response (new response format)
+        sorted_list = response.choices[0].message.content.strip()
+
+        await ctx.send(f"[ ! ] Sorted Shopping List:\n```\n{sorted_list}\n```")
+    except Exception as e:
+        await ctx.send(f"[ ! ] An error occurred while sorting the list: {str(e)}")
+
+
+@bot.command(aliases=["limpar"])
 async def zerar(ctx):
     shopping_list.clear()
     await ctx.send("[ ! ] The shopping list has been cleared.")
@@ -229,9 +274,11 @@ Example: `!historico 03 24` (for March 2024)
 `!lista`
 Shows the current shopping list.
 
-`!zerar`
+`!zerar` or `!limpar`
 Clears the shopping list.
 
+`!ordenar`
+Organizes the shopping list using GPT-4.
 """
     await ctx.send(help_text)
 

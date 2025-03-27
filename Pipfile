@@ -11,6 +11,7 @@ datetime = "*"
 apscheduler = "*"
 asyncio = "*"
 python-dotenv = "*"
+openai = "*"
 
 [dev-packages]
 
