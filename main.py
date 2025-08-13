@@ -87,7 +87,7 @@ def get_house_finance_data(sheet, month, year) -> str:
 def get_detailed_expenses(sheet, month, year) -> str:
     contributions = get_house_finance_data(sheet=sheet, month=month, year=year)
     contributions += "-" * 45 + "\n"
-    data_range = sheet.get("M10:O17")  # Fetches all required cells in one API call
+    data_range = sheet.get("M10:O22")  # Fetches all required cells in one API call
     data = [{"name": row[0], "value": row[1], "type": row[2]} for row in data_range]
     for row in data:
         name = row.get("name")
