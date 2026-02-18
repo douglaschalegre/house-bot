@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 from discord.ext import commands
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -18,6 +19,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
 scheduler = AsyncIOScheduler()
+is_scheduler_started = False
+is_slash_synced = False
 
 # Define intents
 intents = discord.Intents.default()
@@ -25,8 +28,10 @@ intents.messages = True  # Enable reading messages if your bot needs this
 intents.message_content = True  # Required for reading message content
 
 # Discord bot setup
-bot = commands.Bot(command_prefix="!", intents=intents)
-bot.remove_command("help")  # Remove default help command
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+
+SHOPPING_CHANNEL_ID = 1328396042689052682
+FINANCE_CHANNEL_ID = 1328396082375295078
 
 # Google Sheets setup
 scope = [
@@ -53,9 +58,10 @@ def get_sheet(month, year):
 
 # Define an async function to get the sheet using asyncio.to_thread
 async def fetch_sheet(month, year):
-    sheet = get_sheet(month=month, year=year)
+    sheet = await asyncio.to_thread(get_sheet, month, year)
     if sheet is None:
         raise Exception(f"Spreadsheet 'Expenses {month}/{year}' not found.")
+    return sheet
 
 
 def get_house_finance_data(sheet, month, year) -> str:
@@ -97,190 +103,241 @@ def get_detailed_expenses(sheet, month, year) -> str:
     return contributions
 
 
+def current_month_year():
+    current_date = datetime.now()
+    month = current_date.strftime("%m")
+    year = current_date.strftime("%y")
+    return month, year
+
+
+async def build_finance_response(month, year, detailed=False):
+    try:
+        sheet = await asyncio.to_thread(get_sheet, month, year)
+        if sheet is None:
+            return f"Sheet for {month}/{year} not found."
+        if detailed:
+            table = await asyncio.to_thread(get_detailed_expenses, sheet, month, year)
+        else:
+            table = await asyncio.to_thread(get_house_finance_data, sheet, month, year)
+        return f"```\n{table}\n```"
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+
+async def sort_shopping_items():
+    items = "\n".join(shopping_list)
+    prompt = f"""Por favor, organize esta lista de compras de forma lógica, agrupando itens similares.
+    Considere categorias como hortifruti, laticínios, carnes, produtos de despensa, etc.
+    Para cada item, adicione um marcador (-) e mantenha os nomes originais dos itens.
+    Aqui está a lista:
+    {items}"""
+
+    response = await asyncio.to_thread(
+        openai.chat.completions.create,
+        model="gpt-4",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant that organizes shopping lists into logical categories.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.3,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def build_help_text():
+    return """
+**Available Slash Commands:**
+
+`/dindin`
+Shows the current month's financial summary including salaries and contributions.
+
+`/detalhado`
+Shows a detailed view of the current month's finances, including all expenses.
+
+`/historico month:<1-12> year:<0-99>`
+Shows financial data for a specific month and year.
+Example: `/historico month:3 year:24` (for March 2024)
+
+**Shopping List Features:**
+- Add items by typing them in the shopping list channel
+- Each line will be treated as a separate item
+- Bot messages are ignored
+
+`/lista`
+Shows the current shopping list.
+
+`/zerar`
+Clears the shopping list.
+
+`/ordenar`
+Organizes the shopping list using GPT-4.
+
+`/help`
+Shows this help message.
+"""
+
+
+async def resolve_sync_guild():
+    channel = bot.get_channel(SHOPPING_CHANNEL_ID)
+    if channel is None:
+        try:
+            channel = await bot.fetch_channel(SHOPPING_CHANNEL_ID)
+        except discord.DiscordException as e:
+            print(f"Unable to fetch shopping channel for slash sync: {e}")
+            return None
+
+    guild = getattr(channel, "guild", None)
+    if guild is None:
+        print("Unable to resolve guild from shopping channel for slash sync.")
+        return None
+    return guild
+
+
 @bot.event
 async def on_message(message):
-    if message.channel.id == 1328396042689052682 and not (
+    if message.author.bot:
+        return
+
+    if message.channel.id == SHOPPING_CHANNEL_ID and not (
         message.content.startswith("!") or message.content.startswith("[ ! ]")
-    ):  # Replace with your specific channel ID
-        items = message.content.split("\n")
+    ):
+        items = [item.strip() for item in message.content.split("\n") if item.strip()]
         for item in items:
             shopping_list.append(item)
             print(f"{item} added to shopping list")
-    await bot.process_commands(message)
 
 
-@bot.command()
-async def lista(ctx):
+@bot.tree.command(name="lista", description="Shows the current shopping list.")
+async def lista_command(interaction: discord.Interaction):
     if shopping_list:
         formatted_list = "\n".join(f"- {item}" for item in shopping_list)
-        await ctx.send(f"[ ! ] Shopping List:\n```\n{formatted_list}\n```")
+        await interaction.response.send_message(
+            f"[ ! ] Shopping List:\n```\n{formatted_list}\n```"
+        )
     else:
-        await ctx.send("[ ! ] The shopping list is currently empty.")
+        await interaction.response.send_message(
+            "[ ! ] The shopping list is currently empty."
+        )
 
 
-@bot.command()
-async def ordenar(ctx):
-    """
-    Ordena a lista de compras usando o GPT-4
-    """
+@bot.tree.command(name="ordenar", description="Organizes the shopping list using GPT-4.")
+async def ordenar_command(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+
     if not shopping_list:
-        await ctx.send("[ ! ] The shopping list is currently empty.")
+        await interaction.followup.send("[ ! ] The shopping list is currently empty.")
         return
 
     try:
-        # Create the prompt for GPT-4
-        items = "\n".join(shopping_list)
-        prompt = f"""Por favor, organize esta lista de compras de forma lógica, agrupando itens similares.
-        Considere categorias como hortifruti, laticínios, carnes, produtos de despensa, etc.
-        Para cada item, adicione um marcador (-) e mantenha os nomes originais dos itens.
-        Aqui está a lista:
-        {items}"""
-
-        # Make the API request using the new OpenAI client syntax
-        response = await asyncio.to_thread(
-            openai.chat.completions.create,  # Updated API endpoint
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant that organizes shopping lists into logical categories.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,
+        sorted_list = await sort_shopping_items()
+        await interaction.followup.send(
+            f"[ ! ] Sorted Shopping List:\n```\n{sorted_list}\n```"
         )
-
-        # Extract the sorted list from the response (new response format)
-        sorted_list = response.choices[0].message.content.strip()
-
-        await ctx.send(f"[ ! ] Sorted Shopping List:\n```\n{sorted_list}\n```")
     except Exception as e:
-        await ctx.send(f"[ ! ] An error occurred while sorting the list: {str(e)}")
-
-
-@bot.command(aliases=["limpar"])
-async def zerar(ctx):
-    shopping_list.clear()
-    await ctx.send("[ ! ] The shopping list has been cleared.")
+        await interaction.followup.send(
+            f"[ ! ] An error occurred while sorting the list: {str(e)}"
+        )
 
 
 @bot.event
 async def on_ready():
+    global is_scheduler_started, is_slash_synced
+
     print(f"Logged in as {bot.user.name}")
-    scheduler.start()
 
+    if not is_scheduler_started:
+        scheduler.start()
+        is_scheduler_started = True
+        print("Scheduler started.")
 
-@bot.command()
-async def dindin(ctx):
-    current_date = datetime.now()
-    month = current_date.strftime("%m")
-    year = current_date.strftime("%y")
-    try:
-        sheet = get_sheet(month=month, year=year)
-        if sheet is None:
-            await ctx.send(f"Sheet for {month}/{year} not found.")
-            return
-        table = get_house_finance_data(sheet=sheet, month=month, year=year)
-        await ctx.send(f"```\n{table}\n```")
-    except Exception as e:
-        await ctx.send(f"An error occurred: {e}")
-
-
-@bot.command()
-async def historico(ctx, month: str, year: str):
-    """
-    Query historical sheets using month and year
-    Usage: !historico MM YY
-    Example: !historico 03 24
-    """
-    try:
-        # Validate month and year format
-        if not (len(month) == 2 and len(year) == 2):
-            await ctx.send(
-                "Please provide month and year in MM YY format (e.g., 03 24)"
-            )
+    if not is_slash_synced:
+        guild = await resolve_sync_guild()
+        if guild is None:
+            print("Slash command sync skipped; will retry on next ready event.")
             return
 
-        sheet = get_sheet(month=month, year=year)
-        if sheet is None:
-            await ctx.send(f"Sheet for {month}/{year} not found.")
-            return
-        table = get_house_finance_data(sheet=sheet, month=month, year=year)
-        await ctx.send(f"```\n{table}\n```")
-    except Exception as e:
-        await ctx.send(f"An error occurred: {e}")
+        bot.tree.copy_global_to(guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+        is_slash_synced = True
+        print(f"Synced {len(synced)} slash commands to guild {guild.id}.")
 
 
-@bot.command()
-async def detalhado(ctx):
-    current_date = datetime.now()
-    month = current_date.strftime("%m")
-    year = current_date.strftime("%y")
-    try:
-        sheet = get_sheet(month=month, year=year)
-        if sheet is None:
-            await ctx.send(f"Sheet for {month}/{year} not found.")
-            return
-        table = get_detailed_expenses(sheet=sheet, month=month, year=year)
-        await ctx.send(f"```\n{table}\n```")
-    except Exception as e:
-        await ctx.send(f"An error occurred: {e}")
+@bot.tree.command(
+    name="dindin",
+    description="Shows the current month's financial summary including salaries and contributions.",
+)
+async def dindin_command(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    month, year = current_month_year()
+    message = await build_finance_response(month=month, year=year)
+    await interaction.followup.send(message)
+
+
+@bot.tree.command(
+    name="historico",
+    description="Shows financial data for a specific month and year.",
+)
+@app_commands.describe(month="Month number from 1 to 12", year="Two-digit year (0-99)")
+async def historico_command(
+    interaction: discord.Interaction,
+    month: app_commands.Range[int, 1, 12],
+    year: app_commands.Range[int, 0, 99],
+):
+    await interaction.response.defer(thinking=True)
+    month_str = f"{month:02d}"
+    year_str = f"{year:02d}"
+    message = await build_finance_response(month=month_str, year=year_str)
+    await interaction.followup.send(message)
+
+
+@bot.tree.command(
+    name="detalhado",
+    description="Shows a detailed view of the current month's finances, including all expenses.",
+)
+async def detalhado_command(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    month, year = current_month_year()
+    message = await build_finance_response(month=month, year=year, detailed=True)
+    await interaction.followup.send(message)
 
 
 async def send_message(channel_id: int, sheet, month, year):
     channel = bot.get_channel(channel_id)
+    if channel is None:
+        channel = await bot.fetch_channel(channel_id)
     table = get_house_finance_data(sheet=sheet, month=month, year=year)
     await channel.send(f"```\n{table}\n```")
 
 
 @scheduler.scheduled_job(CronTrigger(day="*"))  # Check every day at 0:00 AM
 async def send_month_finance_data():
-    current_date = datetime.now()
-    month = current_date.strftime("%m")
-    year = current_date.strftime("%y")
-    sheet = await fetch_sheet(month=month, year=year)
+    month, year = current_month_year()
+
+    try:
+        sheet = await fetch_sheet(month=month, year=year)
+    except Exception as e:
+        print(f"Failed to get sheet for scheduled message: {e}")
+        return
+
     # Check if today is the 5th business day
     if is_today_fifth_business_day():
-        await send_message(
-            sheet=sheet, channel_id=1328396082375295078, month=month, year=year
-        )
+        await send_message(sheet=sheet, channel_id=FINANCE_CHANNEL_ID, month=month, year=year)
     else:
         print("No need to send monthly finance report today")
 
 
-@bot.command()
-async def help(ctx):
-    """
-    Shows all available commands and how to use them
-    """
-    help_text = """
-**Available Commands:**
+@bot.tree.command(name="zerar", description="Clears the shopping list.")
+async def zerar_command(interaction: discord.Interaction):
+    shopping_list.clear()
+    await interaction.response.send_message("[ ! ] The shopping list has been cleared.")
 
-`!dindin`
-Shows the current month's financial summary including salaries and contributions.
 
-`!detalhado`
-Shows a detailed view of the current month's finances, including all expenses.
-
-`!historico MM YY`
-Shows financial data for a specific month and year.
-Example: `!historico 03 24` (for March 2024)
-
-**Shopping List Features:**
-- Add items by typing them in the shopping list channel
-- Each line will be treated as a separate item
-- Commands starting with '!' or '[ ! ]' will be ignored
-
-`!lista`
-Shows the current shopping list.
-
-`!zerar` or `!limpar`
-Clears the shopping list.
-
-`!ordenar`
-Organizes the shopping list using GPT-4.
-"""
-    await ctx.send(help_text)
+@bot.tree.command(name="help", description="Shows all available slash commands.")
+async def help_command(interaction: discord.Interaction):
+    await interaction.response.send_message(build_help_text())
 
 
 # Run the bot
