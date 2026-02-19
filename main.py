@@ -196,6 +196,28 @@ async def resolve_sync_guild():
     return guild
 
 
+async def safe_defer(interaction: discord.Interaction) -> bool:
+    try:
+        await interaction.response.defer(thinking=True)
+        return True
+    except discord.NotFound:
+        print(
+            f"Interaction expired before defer for command "
+            f"{getattr(interaction.command, 'name', 'unknown')}."
+        )
+        return False
+
+
+async def safe_followup_send(interaction: discord.Interaction, message: str) -> None:
+    try:
+        await interaction.followup.send(message)
+    except discord.NotFound:
+        print(
+            f"Interaction token expired before followup for command "
+            f"{getattr(interaction.command, 'name', 'unknown')}."
+        )
+
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -225,19 +247,22 @@ async def lista_command(interaction: discord.Interaction):
 
 @bot.tree.command(name="ordenar", description="Organizes the shopping list using GPT-4.")
 async def ordenar_command(interaction: discord.Interaction):
-    await interaction.response.defer(thinking=True)
+    if not await safe_defer(interaction):
+        return
 
     if not shopping_list:
-        await interaction.followup.send("[ ! ] The shopping list is currently empty.")
+        await safe_followup_send(interaction, "[ ! ] The shopping list is currently empty.")
         return
 
     try:
         sorted_list = await sort_shopping_items()
-        await interaction.followup.send(
+        await safe_followup_send(
+            interaction,
             f"[ ! ] Sorted Shopping List:\n```\n{sorted_list}\n```"
         )
     except Exception as e:
-        await interaction.followup.send(
+        await safe_followup_send(
+            interaction,
             f"[ ! ] An error occurred while sorting the list: {str(e)}"
         )
 
@@ -270,10 +295,11 @@ async def on_ready():
     description="Shows the current month's financial summary including salaries and contributions.",
 )
 async def dindin_command(interaction: discord.Interaction):
-    await interaction.response.defer(thinking=True)
+    if not await safe_defer(interaction):
+        return
     month, year = current_month_year()
     message = await build_finance_response(month=month, year=year)
-    await interaction.followup.send(message)
+    await safe_followup_send(interaction, message)
 
 
 @bot.tree.command(
@@ -286,11 +312,12 @@ async def historico_command(
     month: app_commands.Range[int, 1, 12],
     year: app_commands.Range[int, 0, 99],
 ):
-    await interaction.response.defer(thinking=True)
+    if not await safe_defer(interaction):
+        return
     month_str = f"{month:02d}"
     year_str = f"{year:02d}"
     message = await build_finance_response(month=month_str, year=year_str)
-    await interaction.followup.send(message)
+    await safe_followup_send(interaction, message)
 
 
 @bot.tree.command(
@@ -298,10 +325,11 @@ async def historico_command(
     description="Shows a detailed view of the current month's finances, including all expenses.",
 )
 async def detalhado_command(interaction: discord.Interaction):
-    await interaction.response.defer(thinking=True)
+    if not await safe_defer(interaction):
+        return
     month, year = current_month_year()
     message = await build_finance_response(month=month, year=year, detailed=True)
-    await interaction.followup.send(message)
+    await safe_followup_send(interaction, message)
 
 
 async def send_message(channel_id: int, sheet, month, year):
