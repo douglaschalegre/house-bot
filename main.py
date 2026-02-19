@@ -64,21 +64,30 @@ async def fetch_sheet(month, year):
     return sheet
 
 
+def normalize_row(row: list[str], width: int = 3, fill: str = "-") -> list[str]:
+    normalized = []
+    for index in range(width):
+        value = row[index] if index < len(row) else ""
+        value = "" if value is None else str(value).strip()
+        normalized.append(value if value else fill)
+    return normalized
+
+
+def is_effectively_empty_row(row: list[str]) -> bool:
+    return not row or all(cell is None or not str(cell).strip() for cell in row)
+
+
 def get_house_finance_data(sheet, month, year) -> str:
     # Get data from the Google Sheet
     values = sheet.get("M6:O8")  # This fetches all necessary values in one go
 
-    # Unpack the values from the fetched data
-    (salario_douglas, percent_douglas, contri_douglas) = values[0]
-    (salario_luana, percent_luana, contri_luana) = values[1]
-    (salario_total, percent_total, contri_total) = values[2]
-
-    # Organize the data
-    data = [
-        ("Douglas", salario_douglas, percent_douglas, contri_douglas),
-        ("Luana", salario_luana, percent_luana, contri_luana),
-        ("Total", salario_total, percent_total, contri_total),
-    ]
+    data = []
+    for offset, name in enumerate(("Douglas", "Luana", "Total"), start=1):
+        row = values[offset - 1] if offset - 1 < len(values) else []
+        if len(row) < 3 or any(cell is None or not str(cell).strip() for cell in row[:3]):
+            print(f"Warning: Normalized partial row in M6:O8 at offset {offset}: {row}")
+        salary, percent, contribution = normalize_row(row)
+        data.append((name, salary, percent, contribution))
 
     # Format as a table
     table = f"Sheet: Expenses {month}/{year}\n"
@@ -94,11 +103,12 @@ def get_detailed_expenses(sheet, month, year) -> str:
     contributions = get_house_finance_data(sheet=sheet, month=month, year=year)
     contributions += "-" * 45 + "\n"
     data_range = sheet.get("M10:O22")  # Fetches all required cells in one API call
-    data = [{"name": row[0], "value": row[1], "type": row[2]} for row in data_range]
-    for row in data:
-        name = row.get("name")
-        value = row.get("value")
-        value_type = row.get("type")
+    for offset, row in enumerate(data_range, start=1):
+        if is_effectively_empty_row(row):
+            continue
+        if len(row) < 3 or any(cell is None or not str(cell).strip() for cell in row[:3]):
+            print(f"Warning: Normalized partial row in M10:O22 at offset {offset}: {row}")
+        name, value, value_type = normalize_row(row)
         contributions += f"{name:<20} {value:<10} {value_type:<15}\n"
     return contributions
 
