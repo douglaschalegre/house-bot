@@ -41,13 +41,13 @@ class ShoppingStore:
                 ON shopping_items (list_id, id)
                 """
             )
-            connection.execute(
-                """
-                INSERT OR IGNORE INTO shopping_state (key, value)
-                VALUES (?, 1)
-                """,
-                (CURRENT_LIST_ID_KEY,),
-            )
+            self._get_current_list_id(connection)
+
+    def _get_max_list_id(self, connection) -> int | None:
+        row = connection.execute("SELECT MAX(list_id) FROM shopping_items").fetchone()
+        if row is None or row[0] is None:
+            return None
+        return int(row[0])
 
     def _get_current_list_id(self, connection) -> int:
         row = connection.execute(
@@ -58,11 +58,24 @@ class ShoppingStore:
         if row is not None:
             return int(row[0])
 
+        list_id = self._get_max_list_id(connection) or 1
         connection.execute(
-            "INSERT INTO shopping_state (key, value) VALUES (?, 1)",
-            (CURRENT_LIST_ID_KEY,),
+            "INSERT INTO shopping_state (key, value) VALUES (?, ?)",
+            (CURRENT_LIST_ID_KEY, list_id),
         )
-        return 1
+        return list_id
+
+    def _list_items(self, connection, list_id: int) -> list[str]:
+        rows = connection.execute(
+            """
+            SELECT content
+            FROM shopping_items
+            WHERE list_id = ?
+            ORDER BY id
+            """,
+            (list_id,),
+        ).fetchall()
+        return [row[0] for row in rows]
 
     def add_items(self, items: Iterable[str]) -> int:
         cleaned_items = [item.strip() for item in items if item and item.strip()]
@@ -80,19 +93,28 @@ class ShoppingStore:
         with self._connect() as connection:
             return self._get_current_list_id(connection)
 
-    def list_current_items(self) -> list[str]:
+    def get_current_list(self) -> tuple[int, list[str]]:
         with self._connect() as connection:
             list_id = self._get_current_list_id(connection)
-            rows = connection.execute(
-                """
-                SELECT content
-                FROM shopping_items
-                WHERE list_id = ?
-                ORDER BY id
-                """,
+            return list_id, self._list_items(connection, list_id)
+
+    def list_current_items(self) -> list[str]:
+        return self.get_current_list()[1]
+
+    def get_status(self) -> dict[str, int | str]:
+        with self._connect() as connection:
+            list_id = self._get_current_list_id(connection)
+            current_item_count = connection.execute(
+                "SELECT COUNT(*) FROM shopping_items WHERE list_id = ?",
                 (list_id,),
-            ).fetchall()
-            return [row[0] for row in rows]
+            ).fetchone()[0]
+            max_list_id = self._get_max_list_id(connection) or 0
+            return {
+                "db_path": str(self.db_path),
+                "current_list_id": list_id,
+                "current_item_count": int(current_item_count),
+                "max_list_id": max_list_id,
+            }
 
     def advance_list(self) -> int:
         with self._connect() as connection:

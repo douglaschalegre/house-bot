@@ -46,6 +46,14 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
 client = gspread.authorize(credentials)
 
 shopping_store = ShoppingStore(SHOPPING_DB_PATH)
+shopping_store_status = shopping_store.get_status()
+print(
+    "Shopping store initialized: "
+    f"db_path={shopping_store_status['db_path']} "
+    f"current_list_id={shopping_store_status['current_list_id']} "
+    f"current_item_count={shopping_store_status['current_item_count']} "
+    f"max_list_id={shopping_store_status['max_list_id']}"
+)
 
 
 def get_sheet(month, year):
@@ -246,8 +254,7 @@ async def on_message(message):
 
 @bot.tree.command(name="lista", description="Shows the current shopping list.")
 async def lista_command(interaction: discord.Interaction):
-    shopping_items = await asyncio.to_thread(shopping_store.list_current_items)
-    list_id = await asyncio.to_thread(shopping_store.get_current_list_id)
+    list_id, shopping_items = await asyncio.to_thread(shopping_store.get_current_list)
 
     if shopping_items:
         formatted_list = "\n".join(f"- {item}" for item in shopping_items)
@@ -265,17 +272,20 @@ async def ordenar_command(interaction: discord.Interaction):
     if not await safe_defer(interaction):
         return
 
-    shopping_items = await asyncio.to_thread(shopping_store.list_current_items)
+    list_id, shopping_items = await asyncio.to_thread(shopping_store.get_current_list)
 
     if not shopping_items:
-        await safe_followup_send(interaction, "[ ! ] The shopping list is currently empty.")
+        await safe_followup_send(
+            interaction,
+            f"[ ! ] Shopping list {list_id} is currently empty.",
+        )
         return
 
     try:
         sorted_list = await sort_shopping_items(shopping_items)
         await safe_followup_send(
             interaction,
-            f"[ ! ] Sorted Shopping List:\n```\n{sorted_list}\n```"
+            f"[ ! ] Sorted Shopping List (list_id: {list_id}):\n```\n{sorted_list}\n```"
         )
     except Exception as e:
         await safe_followup_send(
