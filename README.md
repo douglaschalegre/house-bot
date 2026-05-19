@@ -26,31 +26,32 @@ uv sync
 uv run python main.py
 ```
 
-## Run with Docker Compose
+## Docker Compose
 
-1. Ensure `.env` and `credentials.json` exist in the repository root.
-2. Build and start:
+After pulling new commits on the server, rebuild and recreate the container:
 
 ```bash
-docker compose up -d --build
+cd ~/house-bot
+git pull
+sudo docker compose up -d --build --force-recreate
 ```
 
-3. Tail logs:
+Tail logs:
 
 ```bash
-docker compose logs -f house-bot
+sudo docker compose logs -f house-bot
 ```
 
-4. Restart:
+Restart without code changes:
 
 ```bash
-docker compose restart house-bot
+sudo docker compose restart house-bot
 ```
 
-5. Stop:
+Stop:
 
 ```bash
-docker compose down
+sudo docker compose down
 ```
 
 ## Cutover from systemd
@@ -67,8 +68,8 @@ sudo systemctl disable house-bot.service
 2. Start Docker service:
 
 ```bash
-docker compose up -d --build
-docker compose logs -f house-bot
+sudo docker compose up -d --build --force-recreate
+sudo docker compose logs -f house-bot
 ```
 
 3. Validate in Discord (`/help` or `/lista`) before considering cutover complete.
@@ -78,7 +79,7 @@ docker compose logs -f house-bot
 1. Stop Docker service:
 
 ```bash
-docker compose down
+sudo docker compose down
 ```
 
 2. Re-enable previous systemd unit:
