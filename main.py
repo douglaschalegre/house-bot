@@ -6,6 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from app.shopping_store import ShoppingStore
 from app.util import is_today_fifth_business_day
 import os
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+SHOPPING_DB_PATH = os.getenv("SHOPPING_DB_PATH", "data/shopping_list.sqlite3")
 openai.api_key = OPENAI_API_KEY
 
 scheduler = AsyncIOScheduler()
@@ -43,7 +45,7 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
 )
 client = gspread.authorize(credentials)
 
-shopping_list = []
+shopping_store = ShoppingStore(SHOPPING_DB_PATH)
 
 
 def get_sheet(month, year):
@@ -134,8 +136,8 @@ async def build_finance_response(month, year, detailed=False):
         return f"An error occurred: {e}"
 
 
-async def sort_shopping_items():
-    items = "\n".join(shopping_list)
+async def sort_shopping_items(shopping_items: list[str]):
+    items = "\n".join(shopping_items)
     prompt = f"""Por favor, organize esta lista de compras de forma lógica, agrupando itens similares.
     Considere categorias como hortifruti, laticínios, carnes, produtos de despensa, etc.
     Para cada item, adicione um marcador (-) e mantenha os nomes originais dos itens.
@@ -180,7 +182,7 @@ Example: `/historico month:3 year:24` (for March 2024)
 Shows the current shopping list.
 
 `/zerar`
-Clears the shopping list.
+Starts a new shopping list while keeping history.
 
 `/ordenar`
 Organizes the shopping list using GPT-4.
@@ -237,21 +239,24 @@ async def on_message(message):
         message.content.startswith("!") or message.content.startswith("[ ! ]")
     ):
         items = [item.strip() for item in message.content.split("\n") if item.strip()]
+        list_id = await asyncio.to_thread(shopping_store.add_items, items)
         for item in items:
-            shopping_list.append(item)
-            print(f"{item} added to shopping list")
+            print(f"{item} added to shopping list {list_id}")
 
 
 @bot.tree.command(name="lista", description="Shows the current shopping list.")
 async def lista_command(interaction: discord.Interaction):
-    if shopping_list:
-        formatted_list = "\n".join(f"- {item}" for item in shopping_list)
+    shopping_items = await asyncio.to_thread(shopping_store.list_current_items)
+    list_id = await asyncio.to_thread(shopping_store.get_current_list_id)
+
+    if shopping_items:
+        formatted_list = "\n".join(f"- {item}" for item in shopping_items)
         await interaction.response.send_message(
-            f"[ ! ] Shopping List:\n```\n{formatted_list}\n```"
+            f"[ ! ] Shopping List (list_id: {list_id}):\n```\n{formatted_list}\n```"
         )
     else:
         await interaction.response.send_message(
-            "[ ! ] The shopping list is currently empty."
+            f"[ ! ] Shopping list {list_id} is currently empty."
         )
 
 
@@ -260,12 +265,14 @@ async def ordenar_command(interaction: discord.Interaction):
     if not await safe_defer(interaction):
         return
 
-    if not shopping_list:
+    shopping_items = await asyncio.to_thread(shopping_store.list_current_items)
+
+    if not shopping_items:
         await safe_followup_send(interaction, "[ ! ] The shopping list is currently empty.")
         return
 
     try:
-        sorted_list = await sort_shopping_items()
+        sorted_list = await sort_shopping_items(shopping_items)
         await safe_followup_send(
             interaction,
             f"[ ! ] Sorted Shopping List:\n```\n{sorted_list}\n```"
@@ -367,10 +374,15 @@ async def send_month_finance_data():
         print("No need to send monthly finance report today")
 
 
-@bot.tree.command(name="zerar", description="Clears the shopping list.")
+@bot.tree.command(
+    name="zerar",
+    description="Starts a new shopping list while keeping history.",
+)
 async def zerar_command(interaction: discord.Interaction):
-    shopping_list.clear()
-    await interaction.response.send_message("[ ! ] The shopping list has been cleared.")
+    list_id = await asyncio.to_thread(shopping_store.advance_list)
+    await interaction.response.send_message(
+        f"[ ! ] Started a new shopping list with list_id {list_id}."
+    )
 
 
 @bot.tree.command(name="help", description="Shows all available slash commands.")
