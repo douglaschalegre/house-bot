@@ -4,5 +4,10 @@
 .swarmforge/
 .worktrees/
 swarmforge/scripts/
+__pycache__/
+features/
+swarm
+swarmforge/
+tmp/
 
 credentials.json

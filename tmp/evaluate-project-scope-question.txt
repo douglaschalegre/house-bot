@@ -1,5 +1,0 @@
-Which refactor scope should `Evaluate project` specify?
-
-1. Balanced, recommended: deepen finance, explicit import-safe startup, Discord delivery, and shopping use cases; preserve `ShoppingStore`; delete shallow wrappers. This addresses modularity, DRY, KISS, separation of concerns, and testability without a file-per-command rewrite.
-2. Core only: deepen finance and startup; preserve shopping and Discord delivery as they are.
-3. Broad split: create separate command and provider modules throughout. This makes more files but risks shallow modules and extra interfaces.

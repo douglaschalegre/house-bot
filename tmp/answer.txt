@@ -1,1 +1,0 @@
-Understood. I will replace the speculative product features with a behavior-preserving architecture specification focused on modularity, lower cyclomatic complexity, KISS, DRY, testability, and separation of concerns.
