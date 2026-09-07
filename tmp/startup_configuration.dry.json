@@ -1,0 +1,10 @@
+{
+  "schema_version" : 1,
+  "feature_name" : "Startup configuration",
+  "summary" : {
+    "step_occurrences" : 4,
+    "unique_steps" : 4,
+    "findings" : 0
+  },
+  "findings" : [ ]
+}

@@ -1,5 +1,8 @@
-credentials.json
-.venv
+.DS_Store
 .env
-__pycache__/
-data/
+.claude/
+.swarmforge/
+.worktrees/
+swarmforge/scripts/
+
+credentials.json

@@ -1,0 +1,53 @@
+{
+  "name" : "Monthly finance report delivery",
+  "scenarios" : [ {
+    "name" : "Monthly finance report delivery 001",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "the scheduled finance check runs on <date>",
+      "parameters" : [ "date" ]
+    }, {
+      "keyword" : "Then",
+      "text" : "the bot requests the sheet named <sheet>",
+      "parameters" : [ "sheet" ]
+    }, {
+      "keyword" : "And",
+      "text" : "the bot sends one report from <sheet> to the finance channel",
+      "parameters" : [ "sheet" ]
+    } ],
+    "examples" : [ {
+      "date" : "2026-08-07",
+      "sheet" : "Expenses 08/26"
+    }, {
+      "date" : "2026-09-07",
+      "sheet" : "Expenses 09/26"
+    }, {
+      "date" : "2026-10-07",
+      "sheet" : "Expenses 10/26"
+    } ]
+  }, {
+    "name" : "Monthly finance report delivery 002",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "the scheduled finance check runs on <date>",
+      "parameters" : [ "date" ]
+    }, {
+      "keyword" : "Then",
+      "text" : "the bot does not request a finance sheet"
+    }, {
+      "keyword" : "And",
+      "text" : "the bot sends no report to the finance channel"
+    } ],
+    "examples" : [ {
+      "date" : "2026-08-06"
+    }, {
+      "date" : "2026-08-08"
+    }, {
+      "date" : "2026-09-08"
+    } ]
+  } ],
+  "background" : [ {
+    "keyword" : "Given",
+    "text" : "business days are Monday through Friday"
+  } ]
+}

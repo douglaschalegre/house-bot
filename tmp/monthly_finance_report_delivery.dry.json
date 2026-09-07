@@ -1,0 +1,35 @@
+{
+  "schema_version" : 1,
+  "feature_name" : "Monthly finance report delivery",
+  "summary" : {
+    "step_occurrences" : 7,
+    "unique_steps" : 6,
+    "findings" : 1
+  },
+  "findings" : [ {
+    "kind" : "possible-synonym",
+    "confidence" : "medium",
+    "members" : [ {
+      "text" : "the bot sends no report to the finance channel",
+      "locations" : [ {
+        "section" : "scenario",
+        "scenario_index" : 1,
+        "scenario_name" : "Monthly finance report delivery 002",
+        "step_index" : 2,
+        "keyword" : "And"
+      } ]
+    }, {
+      "text" : "the bot sends one report from <sheet> to the finance channel",
+      "locations" : [ {
+        "section" : "scenario",
+        "scenario_index" : 0,
+        "scenario_name" : "Monthly finance report delivery 001",
+        "step_index" : 2,
+        "keyword" : "And"
+      } ]
+    } ],
+    "reason" : "step texts share many non-placeholder tokens and may describe the same concept",
+    "suggested_action" : "Review manually before editing; normalize the Gherkin only when the different wording is accidental drift.",
+    "score" : 0.625
+  } ]
+}

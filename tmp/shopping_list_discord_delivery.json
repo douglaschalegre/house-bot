@@ -1,0 +1,52 @@
+{
+  "name" : "Shopping list Discord delivery",
+  "scenarios" : [ {
+    "name" : "Shopping list Discord delivery 001",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the current shopping list has <item_count> distinct items of <item_length> characters each",
+      "parameters" : [ "item_count", "item_length" ]
+    }, {
+      "keyword" : "When",
+      "text" : "a user runs /lista"
+    }, {
+      "keyword" : "Then",
+      "text" : "the bot sends every item exactly once in insertion order"
+    }, {
+      "keyword" : "And",
+      "text" : "every response message contains at most 2000 characters"
+    } ],
+    "examples" : [ {
+      "item_count" : "1",
+      "item_length" : "10"
+    }, {
+      "item_count" : "120",
+      "item_length" : "30"
+    } ]
+  }, {
+    "name" : "Shopping list Discord delivery 002",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the sorting service returns <content_length> characters for a nonempty shopping list",
+      "parameters" : [ "content_length" ]
+    }, {
+      "keyword" : "When",
+      "text" : "a user runs /ordenar"
+    }, {
+      "keyword" : "Then",
+      "text" : "the bot sends all sorted content in order"
+    }, {
+      "keyword" : "And",
+      "text" : "every response message contains at most 2000 characters"
+    } ],
+    "examples" : [ {
+      "content_length" : "100"
+    }, {
+      "content_length" : "4500"
+    } ]
+  } ],
+  "background" : [ {
+    "keyword" : "Given",
+    "text" : "Discord accepts messages containing at most 2000 characters"
+  } ]
+}

@@ -1,0 +1,33 @@
+{
+  "name" : "OpenAI sorting failure response",
+  "scenarios" : [ {
+    "name" : "OpenAI sorting failure response 001",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "a nonempty shopping list"
+    }, {
+      "keyword" : "And",
+      "text" : "OpenAI fails with <provider_error>",
+      "parameters" : [ "provider_error" ]
+    }, {
+      "keyword" : "When",
+      "text" : "a user runs /ordenar"
+    }, {
+      "keyword" : "Then",
+      "text" : "the bot responds with Shopping list sorting is temporarily unavailable."
+    }, {
+      "keyword" : "And",
+      "text" : "the response does not contain <provider_error>",
+      "parameters" : [ "provider_error" ]
+    }, {
+      "keyword" : "And",
+      "text" : "the operator log contains <provider_error>",
+      "parameters" : [ "provider_error" ]
+    } ],
+    "examples" : [ {
+      "provider_error" : "invalid API credential"
+    }, {
+      "provider_error" : "request quota exceeded"
+    } ]
+  } ]
+}

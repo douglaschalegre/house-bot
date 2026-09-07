@@ -7,7 +7,6 @@ from apscheduler.triggers.cron import CronTrigger
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from app.shopping_store import ShoppingStore
-from app.util import is_today_fifth_business_day
 import os
 from dotenv import load_dotenv
 import openai
@@ -364,10 +363,13 @@ async def send_message(channel_id: int, sheet, month, year):
     if channel is None:
         channel = await bot.fetch_channel(channel_id)
     table = get_house_finance_data(sheet=sheet, month=month, year=year)
-    await channel.send(f"```\n{table}\n```")
+    await channel.send(
+        f"@everyone\n```\n{table}\n```",
+        allowed_mentions=discord.AllowedMentions(everyone=True),
+    )
 
 
-@scheduler.scheduled_job(CronTrigger(day="*"))  # Check every day at 0:00 AM
+@scheduler.scheduled_job(CronTrigger(day="5"))  # Run on the 5th of every month at 0:00 AM
 async def send_month_finance_data():
     month, year = current_month_year()
 
@@ -377,11 +379,7 @@ async def send_month_finance_data():
         print(f"Failed to get sheet for scheduled message: {e}")
         return
 
-    # Check if today is the 5th business day
-    if is_today_fifth_business_day():
-        await send_message(sheet=sheet, channel_id=FINANCE_CHANNEL_ID, month=month, year=year)
-    else:
-        print("No need to send monthly finance report today")
+    await send_message(sheet=sheet, channel_id=FINANCE_CHANNEL_ID, month=month, year=year)
 
 
 @bot.tree.command(
