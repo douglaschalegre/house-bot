@@ -1,117 +1,96 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime, timezone
 
-import psycopg
+from sqlalchemy import delete, select
+
+from app.database import Database
+from app.database.models.finance import FinanceEntryRecord, FinanceSnapshotRecord
+from app.domain.finance import FinanceEntry, FinancePeriod, FinanceSnapshot
 
 
 class FinanceStore:
-    def __init__(self, database_url: str):
-        self.database_url = database_url
-        self._initialize()
-
-    def _connect(self):
-        return psycopg.connect(self.database_url)
-
-    def _initialize(self):
-        with self._connect() as connection:
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS finance_snapshots (
-                    month TEXT NOT NULL,
-                    year TEXT NOT NULL,
-                    summary_rows TEXT NOT NULL,
-                    detail_rows TEXT NOT NULL,
-                    synced_at TEXT NOT NULL,
-                    PRIMARY KEY (month, year)
-                )
-                """
-            )
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS finance_entries (
-                    month TEXT NOT NULL,
-                    year TEXT NOT NULL,
-                    section TEXT NOT NULL,
-                    source_cell TEXT NOT NULL,
-                    value TEXT NOT NULL,
-                    PRIMARY KEY (month, year, section, source_cell)
-                )
-                """
-            )
+    def __init__(self, database: Database):
+        self.database = database
 
     def save_snapshot(
         self,
-        month: str,
-        year: str,
-        summary_rows: list[list[str]],
-        detail_rows: list[list[str]],
-        entries: list[tuple[str, str, str]],
+        period: FinancePeriod,
+        summary_rows: list[list[object]],
+        detail_rows: list[list[object]],
+        entries: list[FinanceEntry],
     ) -> str:
         synced_at = datetime.now(timezone.utc).isoformat()
-        with self._connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO finance_snapshots
-                    (month, year, summary_rows, detail_rows, synced_at)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT(month, year) DO UPDATE SET
-                    summary_rows = excluded.summary_rows,
-                    detail_rows = excluded.detail_rows,
-                    synced_at = excluded.synced_at
-                """,
-                (
-                    month,
-                    year,
-                    json.dumps(summary_rows),
-                    json.dumps(detail_rows),
-                    synced_at,
-                ),
+        with self.database.session() as session:
+            snapshot = session.get(
+                FinanceSnapshotRecord, (period.month, period.year)
             )
-            connection.execute(
-                "DELETE FROM finance_entries WHERE month = %s AND year = %s",
-                (month, year),
-            )
-            with connection.cursor() as cursor:
-                cursor.executemany(
-                    """
-                    INSERT INTO finance_entries
-                        (month, year, section, source_cell, value)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    [
-                        (month, year, section, source_cell, value)
-                        for section, source_cell, value in entries
-                    ],
+            if snapshot is None:
+                snapshot = FinanceSnapshotRecord(
+                    month=period.month,
+                    year=period.year,
                 )
+                session.add(snapshot)
+
+            snapshot.summary_rows = json.dumps(summary_rows)
+            snapshot.detail_rows = json.dumps(detail_rows)
+            snapshot.synced_at = synced_at
+
+            session.execute(
+                delete(FinanceEntryRecord).where(
+                    FinanceEntryRecord.month == period.month,
+                    FinanceEntryRecord.year == period.year,
+                )
+            )
+            session.add_all(
+                FinanceEntryRecord(
+                    month=entry.period.month,
+                    year=entry.period.year,
+                    section=entry.section,
+                    source_cell=entry.source_cell,
+                    value=entry.value,
+                )
+                for entry in entries
+            )
+            session.commit()
         return synced_at
 
-    def get_snapshot(
-        self, month: str, year: str
-    ) -> tuple[list[list[str]], list[list[str]], str] | None:
-        with self._connect() as connection:
-            row = connection.execute(
-                """
-                SELECT summary_rows, detail_rows, synced_at
-                FROM finance_snapshots
-                WHERE month = %s AND year = %s
-                """,
-                (month, year),
-            ).fetchone()
+    def get_snapshot(self, period: FinancePeriod) -> FinanceSnapshot | None:
+        with self.database.session() as session:
+            record = session.get(
+                FinanceSnapshotRecord, (period.month, period.year)
+            )
 
-        if row is None:
+        if record is None:
             return None
-        return json.loads(row[0]), json.loads(row[1]), row[2]
+        return FinanceSnapshot(
+            period=period,
+            summary_rows=json.loads(record.summary_rows),
+            detail_rows=json.loads(record.detail_rows),
+            synced_at=record.synced_at,
+        )
 
-    def get_entries(self, month: str, year: str) -> list[tuple[str, str, str]]:
-        with self._connect() as connection:
-            rows = connection.execute(
-                """
-                SELECT section, source_cell, value
-                FROM finance_entries
-                WHERE month = %s AND year = %s
-                ORDER BY section, source_cell
-                """,
-                (month, year),
-            ).fetchall()
-        return [(row[0], row[1], row[2]) for row in rows]
+    def get_entries(self, period: FinancePeriod) -> list[FinanceEntry]:
+        with self.database.session() as session:
+            records = session.scalars(
+                select(FinanceEntryRecord)
+                .where(
+                    FinanceEntryRecord.month == period.month,
+                    FinanceEntryRecord.year == period.year,
+                )
+                .order_by(
+                    FinanceEntryRecord.section,
+                    FinanceEntryRecord.source_cell,
+                )
+            ).all()
 
+        return [
+            FinanceEntry(
+                period=period,
+                section=record.section,
+                source_cell=record.source_cell,
+                value=record.value,
+            )
+            for record in records
+        ]

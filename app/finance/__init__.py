@@ -13,12 +13,15 @@ from app.finance.service import (
     is_effectively_empty_row,
     normalize_row,
 )
+from app.domain.finance import FinanceEntry, FinanceSnapshot
 
 __all__ = [
     "BRAZIL_TIMEZONE",
     "FINANCE_RANGES",
+    "FinanceEntry",
     "FinancePeriod",
     "FinanceService",
+    "FinanceSnapshot",
     "FinanceSheetNotFound",
     "FinanceSheetReader",
     "annotate_cells",
@@ -29,4 +32,3 @@ __all__ = [
     "is_effectively_empty_row",
     "normalize_row",
 ]
-

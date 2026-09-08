@@ -1,7 +1,9 @@
 import unittest
 
 from app.finance import (
+    FinanceEntry,
     FinancePeriod,
+    FinanceSnapshot,
     FinanceService,
     annotate_cells,
     column_name,
@@ -21,12 +23,14 @@ class FinanceFormattingTest(unittest.TestCase):
 
     def test_annotate_cells_preserves_section_and_coordinates(self):
         self.assertEqual(
-            annotate_cells("summary", [["a", None], ["b", 2]], "M6"),
+            annotate_cells(
+                self.period, "summary", [["a", None], ["b", 2]], "M6"
+            ),
             [
-                ("summary", "M6", "a"),
-                ("summary", "N6", ""),
-                ("summary", "M7", "b"),
-                ("summary", "N7", "2"),
+                FinanceEntry(self.period, "summary", "M6", "a"),
+                FinanceEntry(self.period, "summary", "N6", ""),
+                FinanceEntry(self.period, "summary", "M7", "b"),
+                FinanceEntry(self.period, "summary", "N7", "2"),
             ],
         )
 
@@ -47,11 +51,12 @@ class FinanceFormattingTest(unittest.TestCase):
 class FinanceServiceTest(unittest.TestCase):
     def test_response_uses_snapshot_and_formats_sync_time(self):
         class Store:
-            def get_snapshot(self, month, year):
-                return (
-                    [["100", "10%", "50"]] * 3,
-                    [],
-                    "2026-09-07T12:00:00+00:00",
+            def get_snapshot(self, period):
+                return FinanceSnapshot(
+                    period=period,
+                    summary_rows=[["100", "10%", "50"]] * 3,
+                    detail_rows=[],
+                    synced_at="2026-09-07T12:00:00+00:00",
                 )
 
         class Reader:

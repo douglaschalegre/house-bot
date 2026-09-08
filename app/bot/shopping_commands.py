@@ -40,16 +40,17 @@ def register_shopping_commands(
 
     @bot.tree.command(name="lista", description="Shows the current shopping list.")
     async def lista_command(interaction: discord.Interaction) -> None:
-        list_id, items = await asyncio.to_thread(store.get_current_list)
-        if not items:
+        shopping_list = await asyncio.to_thread(store.get_current_list)
+        if not shopping_list.items:
             await interaction.response.send_message(
-                f"[ ! ] Shopping list {list_id} is currently empty."
+                f"[ ! ] Shopping list {shopping_list.list_id} is currently empty."
             )
             return
 
-        formatted_list = "\n".join(f"- {item}" for item in items)
+        formatted_list = "\n".join(f"- {item}" for item in shopping_list.items)
         await interaction.response.send_message(
-            f"[ ! ] Shopping List (list_id: {list_id}):\n```\n{formatted_list}\n```"
+            f"[ ! ] Shopping List (list_id: {shopping_list.list_id}):\n```\n"
+            f"{formatted_list}\n```"
         )
 
     @bot.tree.command(
@@ -59,17 +60,18 @@ def register_shopping_commands(
         if not await safe_defer(interaction):
             return
 
-        list_id, items = await asyncio.to_thread(store.get_current_list)
-        if not items:
+        shopping_list = await asyncio.to_thread(store.get_current_list)
+        if not shopping_list.items:
             await safe_followup_send(
-                interaction, f"[ ! ] Shopping list {list_id} is currently empty."
+                interaction,
+                f"[ ! ] Shopping list {shopping_list.list_id} is currently empty.",
             )
             return
 
         try:
-            sorted_list = await sort_items(openai_client, items)
+            sorted_list = await sort_items(openai_client, list(shopping_list.items))
         except Exception:
-            logger.exception("Failed to sort shopping list %s", list_id)
+            logger.exception("Failed to sort shopping list %s", shopping_list.list_id)
             await safe_followup_send(
                 interaction, "[ ! ] An error occurred while sorting the list."
             )
@@ -77,6 +79,6 @@ def register_shopping_commands(
 
         await safe_followup_send(
             interaction,
-            f"[ ! ] Sorted Shopping List (list_id: {list_id}):\n```\n{sorted_list}\n```",
+            f"[ ! ] Sorted Shopping List (list_id: {shopping_list.list_id}):\n```\n"
+            f"{sorted_list}\n```",
         )
-

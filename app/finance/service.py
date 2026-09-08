@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Protocol, Sequence
 
 import gspread
@@ -11,10 +10,11 @@ import gspread
 if TYPE_CHECKING:
     from app.finance.store import FinanceStore
 
+from app.domain.finance import BRAZIL_TIMEZONE, FinanceEntry, FinancePeriod
+
 
 logger = logging.getLogger(__name__)
 
-BRAZIL_TIMEZONE = timezone(timedelta(hours=-3))
 FINANCE_RANGES = {
     "summary": ("M6:O8", "M6"),
     "detail": ("M10:O22", "M10"),
@@ -23,17 +23,6 @@ FINANCE_RANGES = {
     "installments": ("H35:K47", "H35"),
     "subscriptions": ("H85:K97", "H85"),
 }
-
-
-@dataclass(frozen=True)
-class FinancePeriod:
-    month: str
-    year: str
-
-    @classmethod
-    def current(cls) -> "FinancePeriod":
-        now = datetime.now(BRAZIL_TIMEZONE)
-        return cls(month=now.strftime("%m"), year=now.strftime("%y"))
 
 
 class Worksheet(Protocol):
@@ -84,32 +73,32 @@ class FinanceService:
         entries = [
             entry
             for section, (_, start_cell) in FINANCE_RANGES.items()
-            for entry in annotate_cells(section, values[section], start_cell)
+            for entry in annotate_cells(period, section, values[section], start_cell)
         ]
         return self.store.save_snapshot(
-            period.month,
-            period.year,
+            period,
             values["summary"],
             values["detail"],
             entries,
         )
 
     def response(self, period: FinancePeriod, detailed: bool = False) -> str:
-        snapshot = self.store.get_snapshot(period.month, period.year)
+        snapshot = self.store.get_snapshot(period)
         if snapshot is None:
             return (
                 "Finance data is not synchronized for this period. "
                 "Run `/sincronizar` first."
             )
 
-        summary_values, detail_values, synced_at = snapshot
+        summary_values = snapshot.summary_rows
+        detail_values = snapshot.detail_rows
         if detailed:
             table = format_detailed_expenses(summary_values, detail_values, period)
         else:
             table = format_finance_summary(summary_values, period)
         return (
             f"```\n{table}\n```\n"
-            f"_Última sincronização: {format_sync_time(synced_at)}_"
+            f"_Última sincronização: {format_sync_time(snapshot.synced_at)}_"
         )
 
     def current_summary(self, period: FinancePeriod) -> str:
@@ -128,10 +117,11 @@ def column_name(column_number: int) -> str:
 
 
 def annotate_cells(
+    period: FinancePeriod,
     section: str,
     values: Sequence[Sequence[object]],
     start_cell: str,
-) -> list[tuple[str, str, str]]:
+) -> list[FinanceEntry]:
     match = re.fullmatch(r"([A-Z]+)([0-9]+)", start_cell)
     if match is None:
         raise ValueError(f"Invalid start cell: {start_cell}")
@@ -142,10 +132,11 @@ def annotate_cells(
     start_row = int(match.group(2))
 
     return [
-        (
-            section,
-            f"{column_name(start_column + column_index)}{start_row + row_index}",
-            "" if value is None else str(value),
+        FinanceEntry(
+            period=period,
+            section=section,
+            source_cell=f"{column_name(start_column + column_index)}{start_row + row_index}",
+            value="" if value is None else str(value),
         )
         for row_index, row in enumerate(values)
         for column_index, value in enumerate(row)
@@ -214,4 +205,3 @@ def format_sync_time(synced_at: str) -> str:
     if timestamp.tzinfo is None:
         timestamp = timestamp.replace(tzinfo=timezone.utc)
     return timestamp.astimezone(BRAZIL_TIMEZONE).strftime("%d/%m/%Y %H:%M:%S")
-

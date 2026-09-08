@@ -12,6 +12,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from openai import OpenAI
 
 from app.config import Settings
+from app.database import Database
 from app.finance.service import FinanceService, FinanceSheetReader
 from app.bot.finance_commands import register_finance_commands
 from app.bot.lifecycle import register_lifecycle
@@ -37,9 +38,10 @@ def create_bot(settings: Settings) -> commands.Bot:
     intents.message_content = True
     bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-    shopping_store = ShoppingStore(settings.database_url)
+    database = Database(settings.database_url)
+    shopping_store = ShoppingStore(database)
     finance_service = FinanceService(
-        FinanceStore(settings.database_url),
+        FinanceStore(database),
         FinanceSheetReader(_create_sheets_client(settings)),
     )
     openai_client = OpenAI(api_key=settings.openai_api_key)
@@ -138,4 +140,3 @@ Organizes the shopping list using GPT-4.
 `/help`
 Shows this help message.
 """
-
