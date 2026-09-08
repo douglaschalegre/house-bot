@@ -1,17 +1,16 @@
 import json
-import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
+
+import psycopg
 
 
 class FinanceStore:
-    def __init__(self, db_path: str):
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, database_url: str):
+        self.database_url = database_url
         self._initialize()
 
     def _connect(self):
-        return sqlite3.connect(self.db_path)
+        return psycopg.connect(self.database_url)
 
     def _initialize(self):
         with self._connect() as connection:
@@ -54,7 +53,7 @@ class FinanceStore:
                 """
                 INSERT INTO finance_snapshots
                     (month, year, summary_rows, detail_rows, synced_at)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT(month, year) DO UPDATE SET
                     summary_rows = excluded.summary_rows,
                     detail_rows = excluded.detail_rows,
@@ -69,14 +68,14 @@ class FinanceStore:
                 ),
             )
             connection.execute(
-                "DELETE FROM finance_entries WHERE month = ? AND year = ?",
+                "DELETE FROM finance_entries WHERE month = %s AND year = %s",
                 (month, year),
             )
             connection.executemany(
                 """
                 INSERT INTO finance_entries
                     (month, year, section, source_cell, value)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
                 [(month, year, section, source_cell, value) for section, source_cell, value in entries],
             )
@@ -90,7 +89,7 @@ class FinanceStore:
                 """
                 SELECT summary_rows, detail_rows, synced_at
                 FROM finance_snapshots
-                WHERE month = ? AND year = ?
+                WHERE month = %s AND year = %s
                 """,
                 (month, year),
             ).fetchone()
@@ -105,7 +104,7 @@ class FinanceStore:
                 """
                 SELECT section, source_cell, value
                 FROM finance_entries
-                WHERE month = ? AND year = ?
+                WHERE month = %s AND year = %s
                 ORDER BY section, source_cell
                 """,
                 (month, year),

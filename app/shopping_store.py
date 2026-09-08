@@ -69,7 +69,7 @@ class ShoppingStore:
             """
             SELECT content
             FROM shopping_items
-            WHERE list_id = ?
+            WHERE list_id = %s
             ORDER BY id
             """,
             (list_id,),
@@ -83,7 +83,7 @@ class ShoppingStore:
             list_id = self._get_current_list_id(connection)
             if cleaned_items:
                 connection.executemany(
-                    "INSERT INTO shopping_items (list_id, content) VALUES (?, ?)",
+                    "INSERT INTO shopping_items (list_id, content) VALUES (%s, %s)",
                     [(list_id, item) for item in cleaned_items],
                 )
             return list_id
@@ -109,7 +109,7 @@ class ShoppingStore:
             ).fetchone()[0]
             max_list_id = self._get_max_list_id(connection) or 0
             return {
-                "db_path": str(self.db_path),
+                "db_path": "postgresql",
                 "current_list_id": list_id,
                 "current_item_count": int(current_item_count),
                 "max_list_id": max_list_id,
@@ -119,7 +119,7 @@ class ShoppingStore:
         with self._connect() as connection:
             list_id = self._get_current_list_id(connection) + 1
             connection.execute(
-                "UPDATE shopping_state SET value = ? WHERE key = ?",
+                "UPDATE shopping_state SET value = %s WHERE key = %s",
                 (list_id, CURRENT_LIST_ID_KEY),
             )
             return list_id

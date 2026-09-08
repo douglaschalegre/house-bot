@@ -13,6 +13,7 @@ Discord bot to help manage house management data.
 1. Create `.env` from `.env-example` and fill values:
    - `DISCORD_TOKEN`
    - `OPENAI_API_KEY`
+   - `DATABASE_URL`
 2. Place `credentials.json` at the repository root.
 3. Install dependencies:
 
@@ -32,6 +33,32 @@ After starting the bot, synchronize the current finance period once with
 The synchronization reads `M6:O8`, `M10:O22`, `A27:E115`, `H17:K31`,
 `H35:K47`, and `H85:K97`. Every extracted cell is also stored in the
 `finance_entries` table with its section, source cell, and value.
+
+## SQLite to PostgreSQL migration
+
+Create the database on the PostgreSQL server, then configure the same URL in
+`.env`:
+
+```bash
+psql -h 100.117.17.12 -U postgres -d postgres
+```
+
+```sql
+SELECT 'CREATE DATABASE house_bot'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'house_bot')\gexec
+```
+
+Stop the bot, keep a backup of `data/shopping_list.sqlite3`, and run:
+
+```bash
+docker compose build house-bot
+docker compose run --rm --no-deps \
+  -v "$(pwd)/../house-bot-data:/migration:ro" \
+  house-bot uv run python scripts/migrate_sqlite_to_postgres.py
+```
+
+The migration is refused if the target already contains data and never
+deletes the SQLite source.
 
 ## Docker Compose
 

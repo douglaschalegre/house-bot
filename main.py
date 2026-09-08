@@ -18,7 +18,9 @@ load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-SHOPPING_DB_PATH = os.getenv("SHOPPING_DB_PATH", "data/shopping_list.sqlite3")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is required")
 openai.api_key = OPENAI_API_KEY
 
 scheduler = AsyncIOScheduler()
@@ -55,8 +57,8 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
 )
 client = gspread.authorize(credentials)
 
-shopping_store = ShoppingStore(SHOPPING_DB_PATH)
-finance_store = FinanceStore(SHOPPING_DB_PATH)
+shopping_store = ShoppingStore(DATABASE_URL)
+finance_store = FinanceStore(DATABASE_URL)
 shopping_store_status = shopping_store.get_status()
 print(
     "Shopping store initialized: "
