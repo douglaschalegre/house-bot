@@ -11,11 +11,15 @@ class Settings:
     database_url: str
     openai_api_key: str
     credentials_path: Path
+    dindin_url: str
+    dindin_sync_token: str
 
 
 def load_settings() -> Settings:
     load_dotenv()
     return Settings(
+        dindin_url=_required_env("DINDIN_URL").rstrip("/"),
+        dindin_sync_token=_required_env("DINDIN_SYNC_TOKEN"),
         discord_token=_required_env("DISCORD_TOKEN"),
         database_url=_required_env("DATABASE_URL"),
         openai_api_key=_required_env("OPENAI_API_KEY"),

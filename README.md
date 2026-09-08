@@ -27,16 +27,20 @@ uv sync
 uv run python main.py
 ```
 
-After starting the bot, synchronize the current finance period once with
-`/sincronizar`. Finance commands then read the local PostgreSQL snapshot.
+Financial imports are owned by Dindin. The `/sincronizar` command requests
+an import from Dindin and confirms success only after the database transaction
+commits. On a timeout, completion is unconfirmed; inspect the last sync timestamp
+before retrying. Dindin imports the current month at startup and hourly.
 
-The bot also synchronizes the current finance period when it starts and every
-hour afterward. Other periods can be synchronized with `/sincronizar` using
-the month and year options.
+Configure these environment variables alongside the existing Discord and Google settings:
 
-The synchronization reads `M6:O8`, `M10:O22`, `A27:E115`, `H17:K31`,
-`H35:K47`, and `H85:K97`. Every extracted cell is also stored in the
-`finance_entries` table with its section, source cell, and value.
+- `DATABASE_URL`: the existing PostgreSQL connection, shared with Dindin.
+- `DINDIN_URL`: Dindin's private Tailscale HTTPS origin (no `/api` suffix).
+- `DINDIN_SYNC_TOKEN`: the service token configured as `DINDIN_FINANCE_SYNC_TOKEN` in Dindin.
+
+Dindin's `docs/finance-import-cutover.md` describes cutover and rollback. The bot no longer
+creates or writes financial tables. Its monthly report still reads the summary
+from Google Sheets, so Google credentials remain required.
 
 ## Docker Compose
 

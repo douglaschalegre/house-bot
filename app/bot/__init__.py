@@ -14,6 +14,7 @@ from openai import OpenAI
 from app.config import Settings
 from app.database import Database
 from app.finance.service import FinanceService, FinanceSheetReader
+from app.finance.sync_client import FinanceSyncClient
 from app.bot.finance_commands import register_finance_commands
 from app.bot.lifecycle import register_lifecycle
 from app.bot.shopping_commands import register_shopping_commands
@@ -51,7 +52,9 @@ def create_bot(settings: Settings) -> commands.Bot:
     register_shopping_commands(
         bot, shopping_store, openai_client, SHOPPING_CHANNEL_ID
     )
-    register_finance_commands(bot, finance_service)
+    register_finance_commands(
+        bot, finance_service, FinanceSyncClient(settings.dindin_url, settings.dindin_sync_token)
+    )
     register_lifecycle(
         bot,
         scheduler,

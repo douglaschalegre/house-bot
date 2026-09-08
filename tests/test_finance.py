@@ -1,12 +1,9 @@
 import unittest
 
 from app.finance import (
-    FinanceEntry,
     FinancePeriod,
     FinanceSnapshot,
     FinanceService,
-    annotate_cells,
-    column_name,
     format_detailed_expenses,
     format_finance_summary,
     normalize_row,
@@ -15,24 +12,6 @@ from app.finance import (
 
 class FinanceFormattingTest(unittest.TestCase):
     period = FinancePeriod("03", "24")
-
-    def test_column_name_converts_spreadsheet_columns(self):
-        self.assertEqual(column_name(1), "A")
-        self.assertEqual(column_name(26), "Z")
-        self.assertEqual(column_name(27), "AA")
-
-    def test_annotate_cells_preserves_section_and_coordinates(self):
-        self.assertEqual(
-            annotate_cells(
-                self.period, "summary", [["a", None], ["b", 2]], "M6"
-            ),
-            [
-                FinanceEntry(self.period, "summary", "M6", "a"),
-                FinanceEntry(self.period, "summary", "N6", ""),
-                FinanceEntry(self.period, "summary", "M7", "b"),
-                FinanceEntry(self.period, "summary", "N7", "2"),
-            ],
-        )
 
     def test_normalize_row_fills_missing_values(self):
         self.assertEqual(normalize_row([" Douglas ", None]), ["Douglas", "-", "-"])

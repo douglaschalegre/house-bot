@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import logging
-import re
 from datetime import datetime, timezone
-from threading import Lock
 from typing import TYPE_CHECKING, Protocol, Sequence
 
 import gspread
@@ -11,20 +9,10 @@ import gspread
 if TYPE_CHECKING:
     from app.finance.store import FinanceStore
 
-from app.domain.finance import BRAZIL_TIMEZONE, FinanceEntry, FinancePeriod
+from app.domain.finance import BRAZIL_TIMEZONE, FinancePeriod
 
 
 logger = logging.getLogger(__name__)
-
-FINANCE_RANGES = {
-    "summary": ("M6:O8", "M6"),
-    "detail": ("M10:O22", "M10"),
-    "monthly_expenses": ("A27:E115", "A27"),
-    "fixed_expenses": ("H17:K31", "H17"),
-    "installments": ("H35:K47", "H35"),
-    "subscriptions": ("H85:K97", "H85"),
-}
-
 
 class Worksheet(Protocol):
     def get(self, range_name: str) -> list[list[object]]: ...
@@ -46,15 +34,8 @@ class FinanceSheetReader:
     def __init__(self, client: SheetsClient):
         self.client = client
 
-    def read(self, period: FinancePeriod) -> dict[str, list[list[object]]]:
-        sheet = self._get_sheet(period)
-        return {
-            section: sheet.sheet1.get(range_name)
-            for section, (range_name, _) in FINANCE_RANGES.items()
-        }
-
     def read_summary(self, period: FinancePeriod) -> list[list[object]]:
-        return self._get_sheet(period).sheet1.get(FINANCE_RANGES["summary"][0])
+        return self._get_sheet(period).sheet1.get("M6:O8")
 
     def _get_sheet(self, period: FinancePeriod) -> Spreadsheet:
         title = f"Expenses {period.month}/{period.year}"
@@ -68,24 +49,6 @@ class FinanceService:
     def __init__(self, store: FinanceStore, sheet_reader: FinanceSheetReader):
         self.store = store
         self.sheet_reader = sheet_reader
-        self._sync_lock = Lock()
-
-    def synchronize(self, period: FinancePeriod) -> str:
-        with self._sync_lock:
-            values = self.sheet_reader.read(period)
-            entries = [
-                entry
-                for section, (_, start_cell) in FINANCE_RANGES.items()
-                for entry in annotate_cells(
-                    period, section, values[section], start_cell
-                )
-            ]
-            return self.store.save_snapshot(
-                period,
-                values["summary"],
-                values["detail"],
-                entries,
-            )
 
     def response(self, period: FinancePeriod, detailed: bool = False) -> str:
         snapshot = self.store.get_snapshot(period)
@@ -108,44 +71,6 @@ class FinanceService:
 
     def current_summary(self, period: FinancePeriod) -> str:
         return format_finance_summary(self.sheet_reader.read_summary(period), period)
-
-
-def column_name(column_number: int) -> str:
-    if column_number < 1:
-        raise ValueError("Column numbers start at 1")
-
-    name = ""
-    while column_number:
-        column_number, remainder = divmod(column_number - 1, 26)
-        name = chr(65 + remainder) + name
-    return name
-
-
-def annotate_cells(
-    period: FinancePeriod,
-    section: str,
-    values: Sequence[Sequence[object]],
-    start_cell: str,
-) -> list[FinanceEntry]:
-    match = re.fullmatch(r"([A-Z]+)([0-9]+)", start_cell)
-    if match is None:
-        raise ValueError(f"Invalid start cell: {start_cell}")
-
-    start_column = 0
-    for character in match.group(1):
-        start_column = start_column * 26 + ord(character) - ord("A") + 1
-    start_row = int(match.group(2))
-
-    return [
-        FinanceEntry(
-            period=period,
-            section=section,
-            source_cell=f"{column_name(start_column + column_index)}{start_row + row_index}",
-            value="" if value is None else str(value),
-        )
-        for row_index, row in enumerate(values)
-        for column_index, value in enumerate(row)
-    ]
 
 
 def normalize_row(

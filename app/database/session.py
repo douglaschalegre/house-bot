@@ -8,9 +8,18 @@ from app.database.base import Base
 
 
 class Database:
-    def __init__(self, database_url: str):
+    def __init__(self, database_url: str, *, create_shopping_tables: bool = True):
         self.engine = create_engine(_sqlalchemy_url(database_url))
-        Base.metadata.create_all(self.engine)
+        if create_shopping_tables:
+            from app.database.models.shopping import (
+                ShoppingItemRecord,
+                ShoppingStateRecord,
+            )
+
+            Base.metadata.create_all(
+                self.engine,
+                tables=[ShoppingStateRecord.__table__, ShoppingItemRecord.__table__],
+            )
         self._session_factory = sessionmaker(
             bind=self.engine,
             expire_on_commit=False,

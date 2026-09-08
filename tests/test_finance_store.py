@@ -1,42 +1,13 @@
 import unittest
-import os
+from unittest.mock import patch
 
 from app.database import Database
-from app.domain.finance import FinanceEntry, FinancePeriod
 from app.finance.store import FinanceStore
 
 
-POSTGRES_TEST_URL = os.getenv("TEST_DATABASE_URL")
-
-
-@unittest.skipUnless(POSTGRES_TEST_URL, "TEST_DATABASE_URL is not configured")
 class FinanceStoreTest(unittest.TestCase):
-    def test_snapshot_is_replaced_and_reloaded(self):
-        store = FinanceStore(Database(POSTGRES_TEST_URL))
-        period = FinancePeriod("99", "99")
-        entry = FinanceEntry(period, "summary", "M6", "old")
-        first_sync = store.save_snapshot(
-            period, [["old"]], [["old"]], [entry]
-        )
-        second_sync = store.save_snapshot(
-            period,
-            [["new"]],
-            [["new"]],
-            [FinanceEntry(period, "summary", "M6", "new")],
-        )
-
-        self.assertIsNotNone(first_sync)
-        self.assertIsNotNone(second_sync)
-        snapshot = store.get_snapshot(period)
-        self.assertIsNotNone(snapshot)
-        self.assertEqual(snapshot.summary_rows, [["new"]])
-        self.assertEqual(snapshot.detail_rows, [["new"]])
-        self.assertEqual(snapshot.synced_at, second_sync)
-        self.assertEqual(
-            store.get_entries(period),
-            [FinanceEntry(period, "summary", "M6", "new")],
-        )
-
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_read_connection_does_not_create_tables(self):
+        with patch("app.database.session.Base.metadata.create_all") as create:
+            Database("sqlite://", create_shopping_tables=False)
+        create.assert_not_called()
+        self.assertFalse(hasattr(FinanceStore, "save_snapshot"))

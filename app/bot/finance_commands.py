@@ -7,13 +7,14 @@ from discord.ext import commands
 
 from app.bot.discord_utils import safe_defer, safe_followup_send
 from app.finance.service import FinancePeriod, FinanceService
+from app.finance.sync_client import FinanceSyncClient, SyncUnconfirmed, SyncInProgress
 
 
 logger = logging.getLogger(__name__)
 
 
 def register_finance_commands(
-    bot: commands.Bot, finance_service: FinanceService
+    bot: commands.Bot, finance_service: FinanceService, sync_client: FinanceSyncClient
 ) -> None:
     async def send_finance_response(
         interaction: discord.Interaction,
@@ -61,7 +62,19 @@ def register_finance_commands(
             year=f"{year:02d}" if year is not None else current.year,
         )
         try:
-            synced_at = await asyncio.to_thread(finance_service.synchronize, period)
+            synced_at = await asyncio.to_thread(sync_client.synchronize, period)
+        except SyncUnconfirmed:
+            await safe_followup_send(
+                interaction,
+                "Dindin did not confirm completion. The import may still finish; "
+                "check the last synchronization time before retrying.",
+            )
+            return
+        except SyncInProgress:
+            await safe_followup_send(
+                interaction, "This period is already synchronizing. Try again shortly."
+            )
+            return
         except Exception:
             logger.exception(
                 "Failed to synchronize finance data for %s/%s",
