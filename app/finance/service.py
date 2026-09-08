@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone
+from threading import Lock
 from typing import TYPE_CHECKING, Protocol, Sequence
 
 import gspread
@@ -67,20 +68,24 @@ class FinanceService:
     def __init__(self, store: FinanceStore, sheet_reader: FinanceSheetReader):
         self.store = store
         self.sheet_reader = sheet_reader
+        self._sync_lock = Lock()
 
     def synchronize(self, period: FinancePeriod) -> str:
-        values = self.sheet_reader.read(period)
-        entries = [
-            entry
-            for section, (_, start_cell) in FINANCE_RANGES.items()
-            for entry in annotate_cells(period, section, values[section], start_cell)
-        ]
-        return self.store.save_snapshot(
-            period,
-            values["summary"],
-            values["detail"],
-            entries,
-        )
+        with self._sync_lock:
+            values = self.sheet_reader.read(period)
+            entries = [
+                entry
+                for section, (_, start_cell) in FINANCE_RANGES.items()
+                for entry in annotate_cells(
+                    period, section, values[section], start_cell
+                )
+            ]
+            return self.store.save_snapshot(
+                period,
+                values["summary"],
+                values["detail"],
+                entries,
+            )
 
     def response(self, period: FinancePeriod, detailed: bool = False) -> str:
         snapshot = self.store.get_snapshot(period)

@@ -6,7 +6,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from discord.ext import commands
 
-from app.finance.service import FinancePeriod, FinanceService
+from app.finance.service import FinanceService
+from app.jobs.finance_sync import register_finance_sync_job, sync_current_finance
+from app.jobs.monthly_finance_report import register_monthly_finance_report_job
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,10 @@ def register_lifecycle(
 ) -> None:
     scheduler_started = False
     slash_commands_synced = False
+    register_finance_sync_job(scheduler, finance_service)
+    register_monthly_finance_report_job(
+        scheduler, bot, finance_service, finance_channel_id
+    )
 
     async def resolve_sync_guild() -> discord.Guild | None:
         channel = bot.get_channel(shopping_channel_id)
@@ -45,6 +51,7 @@ def register_lifecycle(
             scheduler.start()
             scheduler_started = True
             logger.info("Scheduler started")
+            asyncio.create_task(sync_current_finance(finance_service))
 
         if slash_commands_synced:
             return
@@ -57,23 +64,3 @@ def register_lifecycle(
         synced = await bot.tree.sync(guild=guild)
         slash_commands_synced = True
         logger.info("Synced %s slash commands to guild %s", len(synced), guild.id)
-
-    @scheduler.scheduled_job(CronTrigger(day="5"))
-    async def send_month_finance_data() -> None:
-        period = FinancePeriod.current()
-        try:
-            table = await asyncio.to_thread(finance_service.current_summary, period)
-            channel = bot.get_channel(finance_channel_id)
-            if channel is None:
-                channel = await bot.fetch_channel(finance_channel_id)
-            await channel.send(
-                f"@everyone\n```\n{table}\n```",
-                allowed_mentions=discord.AllowedMentions(everyone=True),
-            )
-        except Exception:
-            logger.exception(
-                "Failed to send scheduled finance data for %s/%s",
-                period.month,
-                period.year,
-            )
-

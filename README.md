@@ -30,6 +30,10 @@ uv run python main.py
 After starting the bot, synchronize the current finance period once with
 `/sincronizar`. Finance commands then read the local PostgreSQL snapshot.
 
+The bot also synchronizes the current finance period when it starts and every
+hour afterward. Other periods can be synchronized with `/sincronizar` using
+the month and year options.
+
 The synchronization reads `M6:O8`, `M10:O22`, `A27:E115`, `H17:K31`,
 `H35:K47`, and `H85:K97`. Every extracted cell is also stored in the
 `finance_entries` table with its section, source cell, and value.
