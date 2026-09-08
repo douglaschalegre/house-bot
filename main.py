@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import gspread
@@ -37,6 +37,7 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 SHOPPING_CHANNEL_ID = 1328396042689052682
 FINANCE_CHANNEL_ID = 1328396082375295078
+BRAZIL_TIMEZONE = timezone(timedelta(hours=-3))
 
 FINANCE_RANGES = {
     "summary": ("M6:O8", "M6"),
@@ -182,6 +183,13 @@ def current_month_year():
     return month, year
 
 
+def format_sync_time(synced_at: str) -> str:
+    timestamp = datetime.fromisoformat(synced_at)
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    return timestamp.astimezone(BRAZIL_TIMEZONE).strftime("%d/%m/%Y %H:%M:%S")
+
+
 async def build_finance_response(month, year, detailed=False):
     try:
         snapshot = await asyncio.to_thread(finance_store.get_snapshot, month, year)
@@ -203,7 +211,8 @@ async def build_finance_response(month, year, detailed=False):
             table = await asyncio.to_thread(
                 get_house_finance_data, summary_values, month, year
             )
-        return f"```\n{table}\n```\n_Last sync: {synced_at}_"
+        formatted_sync_time = format_sync_time(synced_at)
+        return f"```\n{table}\n```\n_Última sincronização: {formatted_sync_time}_"
     except Exception as e:
         return f"An error occurred: {e}"
 
