@@ -71,14 +71,18 @@ class FinanceStore:
                 "DELETE FROM finance_entries WHERE month = %s AND year = %s",
                 (month, year),
             )
-            connection.executemany(
-                """
-                INSERT INTO finance_entries
-                    (month, year, section, source_cell, value)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                [(month, year, section, source_cell, value) for section, source_cell, value in entries],
-            )
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    INSERT INTO finance_entries
+                        (month, year, section, source_cell, value)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    [
+                        (month, year, section, source_cell, value)
+                        for section, source_cell, value in entries
+                    ],
+                )
         return synced_at
 
     def get_snapshot(

@@ -48,13 +48,14 @@ def migrate(sqlite_db_path: str, database_url: str) -> None:
         shopping_items = source.execute(
             "SELECT id, list_id, content, created_at FROM shopping_items ORDER BY id"
         ).fetchall()
-        target.executemany(
-            """
-            INSERT INTO shopping_items (id, list_id, content, created_at)
-            VALUES (%s, %s, %s, %s)
-            """,
-            shopping_items,
-        )
+        with target.cursor() as cursor:
+            cursor.executemany(
+                """
+                INSERT INTO shopping_items (id, list_id, content, created_at)
+                VALUES (%s, %s, %s, %s)
+                """,
+                shopping_items,
+            )
         target.execute(
             """
             SELECT setval(
@@ -69,44 +70,47 @@ def migrate(sqlite_db_path: str, database_url: str) -> None:
         shopping_state = source.execute(
             "SELECT key, value FROM shopping_state"
         ).fetchall()
-        target.executemany(
-            """
-            INSERT INTO shopping_state (key, value)
-            VALUES (%s, %s)
-            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-            """,
-            shopping_state,
-        )
+        with target.cursor() as cursor:
+            cursor.executemany(
+                """
+                INSERT INTO shopping_state (key, value)
+                VALUES (%s, %s)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                """,
+                shopping_state,
+            )
 
         if sqlite_table_exists(source, "finance_snapshots"):
-            target.executemany(
-                """
-                INSERT INTO finance_snapshots
-                    (month, year, summary_rows, detail_rows, synced_at)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                source.execute(
+            with target.cursor() as cursor:
+                cursor.executemany(
                     """
-                    SELECT month, year, summary_rows, detail_rows, synced_at
-                    FROM finance_snapshots
-                    """
-                ).fetchall(),
-            )
+                    INSERT INTO finance_snapshots
+                        (month, year, summary_rows, detail_rows, synced_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    source.execute(
+                        """
+                        SELECT month, year, summary_rows, detail_rows, synced_at
+                        FROM finance_snapshots
+                        """
+                    ).fetchall(),
+                )
 
         if sqlite_table_exists(source, "finance_entries"):
-            target.executemany(
-                """
-                INSERT INTO finance_entries
-                    (month, year, section, source_cell, value)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                source.execute(
+            with target.cursor() as cursor:
+                cursor.executemany(
                     """
-                    SELECT month, year, section, source_cell, value
-                    FROM finance_entries
-                    """
-                ).fetchall(),
-            )
+                    INSERT INTO finance_entries
+                        (month, year, section, source_cell, value)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    source.execute(
+                        """
+                        SELECT month, year, section, source_cell, value
+                        FROM finance_entries
+                        """
+                    ).fetchall(),
+                )
 
 
 if __name__ == "__main__":

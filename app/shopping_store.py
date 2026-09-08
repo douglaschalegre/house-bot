@@ -82,10 +82,11 @@ class ShoppingStore:
         with self._connect() as connection:
             list_id = self._get_current_list_id(connection)
             if cleaned_items:
-                connection.executemany(
-                    "INSERT INTO shopping_items (list_id, content) VALUES (%s, %s)",
-                    [(list_id, item) for item in cleaned_items],
-                )
+                with connection.cursor() as cursor:
+                    cursor.executemany(
+                        "INSERT INTO shopping_items (list_id, content) VALUES (%s, %s)",
+                        [(list_id, item) for item in cleaned_items],
+                    )
             return list_id
 
     def get_current_list_id(self) -> int:
