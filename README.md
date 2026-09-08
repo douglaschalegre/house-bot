@@ -26,6 +26,9 @@ uv sync
 uv run python main.py
 ```
 
+After starting the bot, synchronize the current finance period once with
+`/sincronizar`. Finance commands then read the local SQLite snapshot.
+
 ## Docker Compose
 
 After pulling new commits on the server, rebuild and recreate the container:

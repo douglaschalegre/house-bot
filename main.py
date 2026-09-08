@@ -6,6 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from app.finance_store import FinanceStore
 from app.shopping_store import ShoppingStore
 import os
 from dotenv import load_dotenv
@@ -45,6 +46,7 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
 client = gspread.authorize(credentials)
 
 shopping_store = ShoppingStore(SHOPPING_DB_PATH)
+finance_store = FinanceStore(SHOPPING_DB_PATH)
 shopping_store_status = shopping_store.get_status()
 print(
     "Shopping store initialized: "
@@ -73,6 +75,13 @@ async def fetch_sheet(month, year):
     return sheet
 
 
+def read_finance_sheet(month: str, year: str) -> tuple[list[list[str]], list[list[str]]]:
+    sheet = get_sheet(month, year)
+    if sheet is None:
+        raise Exception(f"Spreadsheet 'Expenses {month}/{year}' not found.")
+    return sheet.get("M6:O8"), sheet.get("M10:O22")
+
+
 def normalize_row(row: list[str], width: int = 3, fill: str = "-") -> list[str]:
     normalized = []
     for index in range(width):
@@ -86,10 +95,7 @@ def is_effectively_empty_row(row: list[str]) -> bool:
     return not row or all(cell is None or not str(cell).strip() for cell in row)
 
 
-def get_house_finance_data(sheet, month, year) -> str:
-    # Get data from the Google Sheet
-    values = sheet.get("M6:O8")  # This fetches all necessary values in one go
-
+def get_house_finance_data(values: list[list[str]], month, year) -> str:
     data = []
     for offset, name in enumerate(("Douglas", "Luana", "Total"), start=1):
         row = values[offset - 1] if offset - 1 < len(values) else []
@@ -108,11 +114,12 @@ def get_house_finance_data(sheet, month, year) -> str:
     return table
 
 
-def get_detailed_expenses(sheet, month, year) -> str:
-    contributions = get_house_finance_data(sheet=sheet, month=month, year=year)
+def get_detailed_expenses(
+    summary_values: list[list[str]], detail_values: list[list[str]], month, year
+) -> str:
+    contributions = get_house_finance_data(values=summary_values, month=month, year=year)
     contributions += "-" * 45 + "\n"
-    data_range = sheet.get("M10:O22")  # Fetches all required cells in one API call
-    for offset, row in enumerate(data_range, start=1):
+    for offset, row in enumerate(detail_values, start=1):
         if is_effectively_empty_row(row):
             continue
         if len(row) < 3 or any(cell is None or not str(cell).strip() for cell in row[:3]):
@@ -131,16 +138,41 @@ def current_month_year():
 
 async def build_finance_response(month, year, detailed=False):
     try:
-        sheet = await asyncio.to_thread(get_sheet, month, year)
-        if sheet is None:
-            return f"Sheet for {month}/{year} not found."
+        snapshot = await asyncio.to_thread(finance_store.get_snapshot, month, year)
+        if snapshot is None:
+            return (
+                "Finance data is not synchronized for this period. "
+                "Run `/sincronizar` first."
+            )
+        summary_values, detail_values, synced_at = snapshot
         if detailed:
-            table = await asyncio.to_thread(get_detailed_expenses, sheet, month, year)
+            table = await asyncio.to_thread(
+                get_detailed_expenses,
+                summary_values,
+                detail_values,
+                month,
+                year,
+            )
         else:
-            table = await asyncio.to_thread(get_house_finance_data, sheet, month, year)
-        return f"```\n{table}\n```"
+            table = await asyncio.to_thread(
+                get_house_finance_data, summary_values, month, year
+            )
+        return f"```\n{table}\n```\n_Last sync: {synced_at}_"
     except Exception as e:
         return f"An error occurred: {e}"
+
+
+async def synchronize_finance(month: str, year: str) -> str:
+    summary_values, detail_values = await asyncio.to_thread(
+        read_finance_sheet, month, year
+    )
+    return await asyncio.to_thread(
+        finance_store.save_snapshot,
+        month,
+        year,
+        summary_values,
+        detail_values,
+    )
 
 
 async def sort_shopping_items(shopping_items: list[str]):
@@ -175,6 +207,9 @@ Shows the current month's financial summary including salaries and contributions
 
 `/detalhado`
 Shows a detailed view of the current month's finances, including all expenses.
+
+`/sincronizar month:<1-12> year:<0-99>`
+Synchronizes a finance period from Google Sheets to the local database.
 
 `/historico month:<1-12> year:<0-99>`
 Shows financial data for a specific month and year.
@@ -329,6 +364,39 @@ async def dindin_command(interaction: discord.Interaction):
 
 
 @bot.tree.command(
+    name="sincronizar",
+    description="Synchronizes a finance period from Google Sheets to the local database.",
+)
+@app_commands.describe(month="Month number from 1 to 12", year="Two-digit year (0-99)")
+async def sincronizar_command(
+    interaction: discord.Interaction,
+    month: app_commands.Range[int, 1, 12] | None = None,
+    year: app_commands.Range[int, 0, 99] | None = None,
+):
+    if not await safe_defer(interaction):
+        return
+
+    current_month, current_year = current_month_year()
+    month_str = f"{month:02d}" if month is not None else current_month
+    year_str = f"{year:02d}" if year is not None else current_year
+
+    try:
+        synced_at = await synchronize_finance(month=month_str, year=year_str)
+    except Exception as e:
+        print(f"Failed to synchronize finance data for {month_str}/{year_str}: {e}")
+        await safe_followup_send(
+            interaction,
+            f"Finance synchronization failed for {month_str}/{year_str}.",
+        )
+        return
+
+    await safe_followup_send(
+        interaction,
+        f"Finance data synchronized for {month_str}/{year_str} at {synced_at}.",
+    )
+
+
+@bot.tree.command(
     name="historico",
     description="Shows financial data for a specific month and year.",
 )
@@ -362,7 +430,7 @@ async def send_message(channel_id: int, sheet, month, year):
     channel = bot.get_channel(channel_id)
     if channel is None:
         channel = await bot.fetch_channel(channel_id)
-    table = get_house_finance_data(sheet=sheet, month=month, year=year)
+    table = get_house_finance_data(values=sheet.get("M6:O8"), month=month, year=year)
     await channel.send(
         f"@everyone\n```\n{table}\n```",
         allowed_mentions=discord.AllowedMentions(everyone=True),
