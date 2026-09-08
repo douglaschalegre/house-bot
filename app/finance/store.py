@@ -114,3 +114,4 @@ class FinanceStore:
                 (month, year),
             ).fetchall()
         return [(row[0], row[1], row[2]) for row in rows]
+

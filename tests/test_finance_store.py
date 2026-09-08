@@ -1,8 +1,7 @@
-import tempfile
 import unittest
 import os
 
-from app.finance_store import FinanceStore
+from app.finance.store import FinanceStore
 
 
 POSTGRES_TEST_URL = os.getenv("TEST_DATABASE_URL")

@@ -28,37 +28,11 @@ uv run python main.py
 ```
 
 After starting the bot, synchronize the current finance period once with
-`/sincronizar`. Finance commands then read the local SQLite snapshot.
+`/sincronizar`. Finance commands then read the local PostgreSQL snapshot.
 
 The synchronization reads `M6:O8`, `M10:O22`, `A27:E115`, `H17:K31`,
 `H35:K47`, and `H85:K97`. Every extracted cell is also stored in the
 `finance_entries` table with its section, source cell, and value.
-
-## SQLite to PostgreSQL migration
-
-Create the database on the PostgreSQL server, then configure the same URL in
-`.env`:
-
-```bash
-psql -h 100.117.17.12 -U postgres -d postgres
-```
-
-```sql
-SELECT 'CREATE DATABASE house_bot'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'house_bot')\gexec
-```
-
-Stop the bot, keep a backup of `data/shopping_list.sqlite3`, and run:
-
-```bash
-docker compose build house-bot
-docker compose run --rm --no-deps \
-  -v "$(pwd)/../house-bot-data:/migration:ro" \
-  house-bot uv run python scripts/migrate_sqlite_to_postgres.py
-```
-
-The migration is refused if the target already contains data and never
-deletes the SQLite source.
 
 ## Docker Compose
 

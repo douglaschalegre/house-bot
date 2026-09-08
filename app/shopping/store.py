@@ -124,3 +124,4 @@ class ShoppingStore:
                 (list_id, CURRENT_LIST_ID_KEY),
             )
             return list_id
+
