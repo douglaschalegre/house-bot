@@ -9,8 +9,12 @@ class FinanceStoreTest(unittest.TestCase):
     def test_snapshot_is_replaced_and_reloaded(self):
         with tempfile.TemporaryDirectory() as directory:
             store = FinanceStore(str(Path(directory) / "finance.sqlite3"))
-            first_sync = store.save_snapshot("09", "26", [["old"]], [["old"]])
-            second_sync = store.save_snapshot("09", "26", [["new"]], [["new"]])
+            first_sync = store.save_snapshot(
+                "09", "26", [["old"]], [["old"]], [("summary", "M6", "old")]
+            )
+            second_sync = store.save_snapshot(
+                "09", "26", [["new"]], [["new"]], [("summary", "M6", "new")]
+            )
 
             self.assertIsNotNone(first_sync)
             self.assertIsNotNone(second_sync)
@@ -18,6 +22,7 @@ class FinanceStoreTest(unittest.TestCase):
                 store.get_snapshot("09", "26"),
                 ([["new"]], [["new"]], second_sync),
             )
+            self.assertEqual(store.get_entries("09", "26"), [("summary", "M6", "new")])
             self.assertIsNone(store.get_snapshot("08", "26"))
 
 

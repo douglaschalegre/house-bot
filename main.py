@@ -9,6 +9,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from app.finance_store import FinanceStore
 from app.shopping_store import ShoppingStore
 import os
+import re
 from dotenv import load_dotenv
 import openai
 import asyncio
@@ -34,6 +35,15 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 SHOPPING_CHANNEL_ID = 1328396042689052682
 FINANCE_CHANNEL_ID = 1328396082375295078
+
+FINANCE_RANGES = {
+    "summary": ("M6:O8", "M6"),
+    "detail": ("M10:O22", "M10"),
+    "monthly_expenses": ("A27:E115", "A27"),
+    "fixed_expenses": ("H17:K31", "H17"),
+    "installments": ("H35:K47", "H35"),
+    "subscriptions": ("H85:K97", "H85"),
+}
 
 # Google Sheets setup
 scope = [
@@ -75,11 +85,45 @@ async def fetch_sheet(month, year):
     return sheet
 
 
-def read_finance_sheet(month: str, year: str) -> tuple[list[list[str]], list[list[str]]]:
+def read_finance_sheet(month: str, year: str) -> dict[str, list[list[str]]]:
     sheet = get_sheet(month, year)
     if sheet is None:
         raise Exception(f"Spreadsheet 'Expenses {month}/{year}' not found.")
-    return sheet.get("M6:O8"), sheet.get("M10:O22")
+    return {
+        section: sheet.get(range_name)
+        for section, (range_name, _) in FINANCE_RANGES.items()
+    }
+
+
+def column_name(column_number: int) -> str:
+    name = ""
+    while column_number:
+        column_number, remainder = divmod(column_number - 1, 26)
+        name = chr(65 + remainder) + name
+    return name
+
+
+def annotate_cells(
+    section: str, values: list[list[str]], start_cell: str
+) -> list[tuple[str, str, str]]:
+    match = re.fullmatch(r"([A-Z]+)([0-9]+)", start_cell)
+    if match is None:
+        raise ValueError(f"Invalid start cell: {start_cell}")
+
+    start_column = 0
+    for character in match.group(1):
+        start_column = start_column * 26 + ord(character) - ord("A") + 1
+    start_row = int(match.group(2))
+
+    return [
+        (
+            section,
+            f"{column_name(start_column + column_index)}{start_row + row_index}",
+            "" if value is None else str(value),
+        )
+        for row_index, row in enumerate(values)
+        for column_index, value in enumerate(row)
+    ]
 
 
 def normalize_row(row: list[str], width: int = 3, fill: str = "-") -> list[str]:
@@ -163,15 +207,21 @@ async def build_finance_response(month, year, detailed=False):
 
 
 async def synchronize_finance(month: str, year: str) -> str:
-    summary_values, detail_values = await asyncio.to_thread(
+    values = await asyncio.to_thread(
         read_finance_sheet, month, year
     )
+    entries = [
+        entry
+        for section, (_, start_cell) in FINANCE_RANGES.items()
+        for entry in annotate_cells(section, values[section], start_cell)
+    ]
     return await asyncio.to_thread(
         finance_store.save_snapshot,
         month,
         year,
-        summary_values,
-        detail_values,
+        values["summary"],
+        values["detail"],
+        entries,
     )
 
 
@@ -430,7 +480,9 @@ async def send_message(channel_id: int, sheet, month, year):
     channel = bot.get_channel(channel_id)
     if channel is None:
         channel = await bot.fetch_channel(channel_id)
-    table = get_house_finance_data(values=sheet.get("M6:O8"), month=month, year=year)
+    table = get_house_finance_data(
+        values=sheet.get(FINANCE_RANGES["summary"][0]), month=month, year=year
+    )
     await channel.send(
         f"@everyone\n```\n{table}\n```",
         allowed_mentions=discord.AllowedMentions(everyone=True),

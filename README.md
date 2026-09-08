@@ -29,6 +29,10 @@ uv run python main.py
 After starting the bot, synchronize the current finance period once with
 `/sincronizar`. Finance commands then read the local SQLite snapshot.
 
+The synchronization reads `M6:O8`, `M10:O22`, `A27:E115`, `H17:K31`,
+`H35:K47`, and `H85:K97`. Every extracted cell is also stored in the
+`finance_entries` table with its section, source cell, and value.
+
 ## Docker Compose
 
 After pulling new commits on the server, rebuild and recreate the container:

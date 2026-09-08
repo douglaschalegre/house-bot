@@ -27,6 +27,18 @@ class FinanceStore:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS finance_entries (
+                    month TEXT NOT NULL,
+                    year TEXT NOT NULL,
+                    section TEXT NOT NULL,
+                    source_cell TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    PRIMARY KEY (month, year, section, source_cell)
+                )
+                """
+            )
 
     def save_snapshot(
         self,
@@ -34,6 +46,7 @@ class FinanceStore:
         year: str,
         summary_rows: list[list[str]],
         detail_rows: list[list[str]],
+        entries: list[tuple[str, str, str]],
     ) -> str:
         synced_at = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
@@ -55,6 +68,18 @@ class FinanceStore:
                     synced_at,
                 ),
             )
+            connection.execute(
+                "DELETE FROM finance_entries WHERE month = ? AND year = ?",
+                (month, year),
+            )
+            connection.executemany(
+                """
+                INSERT INTO finance_entries
+                    (month, year, section, source_cell, value)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [(month, year, section, source_cell, value) for section, source_cell, value in entries],
+            )
         return synced_at
 
     def get_snapshot(
@@ -73,3 +98,16 @@ class FinanceStore:
         if row is None:
             return None
         return json.loads(row[0]), json.loads(row[1]), row[2]
+
+    def get_entries(self, month: str, year: str) -> list[tuple[str, str, str]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT section, source_cell, value
+                FROM finance_entries
+                WHERE month = ? AND year = ?
+                ORDER BY section, source_cell
+                """,
+                (month, year),
+            ).fetchall()
+        return [(row[0], row[1], row[2]) for row in rows]
