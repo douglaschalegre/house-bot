@@ -6,6 +6,8 @@
 swarmforge/scripts/
 __pycache__/
 features/
+!/.agents/skills/verify-house-bot/features/
+!/.agents/skills/verify-house-bot/features/**
 swarm
 swarmforge/
 tmp/

@@ -1,0 +1,35 @@
+test_format_detailed_expenses_skips_empty_rows (tests.test_finance.FinanceFormattingTest.test_format_detailed_expenses_skips_empty_rows) ... ok
+test_normalize_row_fills_missing_values (tests.test_finance.FinanceFormattingTest.test_normalize_row_fills_missing_values) ... ok
+test_response_uses_snapshot_and_formats_sync_time (tests.test_finance.FinanceServiceTest.test_response_uses_snapshot_and_formats_sync_time) ... ok
+test_read_connection_does_not_create_tables (tests.test_finance_store.FinanceStoreTest.test_read_connection_does_not_create_tables) ... ok
+test_registers_only_monthly_report (tests.test_lifecycle_jobs.LifecycleJobsTest.test_registers_only_monthly_report) ... ok
+test_sync_messages (tests.test_sync_client.FinanceCommandTest.test_sync_messages) ... Failed to synchronize finance data for 03/24
+Traceback (most recent call last):
+  File "/Users/douglas/code/pers/house-bot/app/bot/finance_commands.py", line 65, in sincronizar_command
+    synced_at = await asyncio.to_thread(sync_client.synchronize, period)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+RuntimeError
+ok
+test_conflict_and_failure (tests.test_sync_client.SyncClientTest.test_conflict_and_failure) ... ok
+test_financial_reads_and_shopping_startup (tests.test_sync_client.SyncClientTest.test_financial_reads_and_shopping_startup) ... ok
+test_success_contract (tests.test_sync_client.SyncClientTest.test_success_contract) ... ok
+test_timeout_is_unconfirmed (tests.test_sync_client.SyncClientTest.test_timeout_is_unconfirmed) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.053s
+
+OK

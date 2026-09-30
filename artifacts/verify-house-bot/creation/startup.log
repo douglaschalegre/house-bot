@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/Users/douglas/code/pers/house-bot/main.py", line 14, in <module>
+    main()
+  File "/Users/douglas/code/pers/house-bot/main.py", line 9, in main
+    settings = load_settings()
+               ^^^^^^^^^^^^^^^
+  File "/Users/douglas/code/pers/house-bot/app/config.py", line 21, in load_settings
+    dindin_url=_required_env("DINDIN_URL").rstrip("/"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/douglas/code/pers/house-bot/app/config.py", line 35, in _required_env
+    raise RuntimeError(f"{name} is required")
+RuntimeError: DINDIN_URL is required
