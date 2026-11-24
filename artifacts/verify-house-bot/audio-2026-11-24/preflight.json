@@ -1,0 +1,21 @@
+{
+  "local_prerequisites_ok": false,
+  "python": "3.12.4",
+  "missing_settings": [
+    "DATABASE_URL",
+    "DINDIN_URL",
+    "DINDIN_SYNC_TOKEN"
+  ],
+  "google_credentials_shape_ok": true,
+  "packages": {
+    "discord.py": "2.5.2",
+    "SQLAlchemy": "2.0.52",
+    "psycopg": "3.3.5",
+    "gspread": "6.2.0",
+    "openai": "1.68.2",
+    "APScheduler": "3.11.0"
+  },
+  "network_requests": 0,
+  "live_auth_checked": false,
+  "note": "This check does not establish Discord readiness or exclusive ownership."
+}

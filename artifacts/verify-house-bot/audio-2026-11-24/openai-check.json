@@ -1,0 +1,43 @@
+{
+  "scope": "Live OpenAI only, synthetic audio, no Discord connection or shopping writes",
+  "results": [
+    {
+      "case": "addition",
+      "input": "Coloca dois quilos de tomate, seis bananas e um pacote de arroz. Leite não, já temos.",
+      "items": [
+        "2 kg de tomate",
+        "6 bananas",
+        "1 pacote de arroz"
+      ],
+      "passed": true,
+      "source": "macOS Luciana synthetic pt-BR WAV"
+    },
+    {
+      "case": "correction",
+      "input": "Adiciona três maçãs. Na verdade, coloca cinco maçãs, não três. E um litro de leite.",
+      "items": [
+        "5 maçãs",
+        "1 litro de leite"
+      ],
+      "passed": true,
+      "source": "macOS Luciana synthetic pt-BR WAV"
+    },
+    {
+      "case": "no_addition",
+      "input": "Oi pessoal, bom dia. A feira estava cheia hoje. Já comprei o arroz, não precisa adicionar nada.",
+      "items": [],
+      "passed": true,
+      "source": "macOS Luciana synthetic pt-BR WAV"
+    },
+    {
+      "case": "discord_ogg_opus_codec",
+      "input": "Coloca dois quilos de tomate e seis bananas. Leite não, já temos.",
+      "items": [
+        "2 kg de tomate",
+        "6 bananas"
+      ],
+      "passed": true,
+      "source": "macOS Luciana synthetic pt-BR, encoded OGG Opus 48 kHz mono"
+    }
+  ]
+}

@@ -27,6 +27,30 @@ uv sync
 uv run python main.py
 ```
 
+## Lista da feira por áudio
+
+Envie uma mensagem de voz ou um arquivo de áudio no `#feira`. Por exemplo:
+"Coloca dois quilos de tomate, seis bananas e um pacote de arroz. Leite não,
+já temos." O bot transcreve com `gpt-transcribe`, interpreta o pedido com
+`gpt-4o-mini` e adiciona os itens à lista atual, preservando quantidades.
+A resposta confirma os itens adicionados; `/lista` mostra a lista completa.
+
+Usa a mesma `OPENAI_API_KEY`, sem configuração adicional. Cada áudio gera uma
+chamada de transcrição e, quando há fala transcrita, uma de interpretação.
+Os formatos aceitos são OGG (incluindo mensagens de voz do Discord), MP3, MP4,
+MPEG, MPGA, M4A, WAV, WEBM e FLAC, com até 25 MB por arquivo.
+Cada áudio pode gerar até 50 itens, com até 200 caracteres por item.
+
+O áudio permite adicionar itens; pedidos apenas de remoção, consulta ou reset
+não alteram a lista. Quando uma mensagem contém áudio, a legenda não é adicionada
+como item. Vários áudios da mesma mensagem são processados antes de uma única
+gravação; se algum falhar, nenhum item dessa mensagem é adicionado.
+Arquivos sem itens identificáveis recebem um aviso. Os áudios são processados
+em memória, sem arquivos locais permanentes. A transcrição e a interpretação
+enviam dados à OpenAI.
+
+Mensagens só de texto continuam adicionando um item por linha.
+
 Financial imports are owned by Dindin. The `/sincronizar` command requests
 an import from Dindin and confirms success only after the database transaction
 commits. On a timeout, completion is unconfirmed; inspect the last sync timestamp

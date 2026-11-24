@@ -129,6 +129,8 @@ Example: `/historico month:3 year:24` (for March 2024)
 **Shopping List Features:**
 - Add items by typing them in the shopping list channel
 - Each line will be treated as a separate item
+- Send a voice message or audio file in #feira to add items using natural language
+- The bot transcribes the audio and confirms the items it added
 - Bot messages are ignored
 
 `/lista`
